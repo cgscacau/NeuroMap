@@ -1,0 +1,6 @@
+streamlit>=1.39
+pydantic>=2.5
+supabase>=2.6
+reportlab<4
+httpx>=0.27
+typing-extensions>=4.8
