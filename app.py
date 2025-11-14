@@ -1,28 +1,8 @@
-# app.py — NeuroMap (Firebase Edition)
-# ================================
-# Avaliação de personalidade (DISC + Big Five + MBTI)
+# app.py — NeuroMap (Firebase Edition, usando fpdf2 para PDF)
+# ===========================================================
 # Stack: Python + Streamlit + Firebase Auth + Firestore (REST)
-# Recursos: Login/Signup, questionário (48 itens), cálculo de scores, relatório HTML/PDF,
-#           persistência por usuário com segurança via Rules (cada um só vê o que é seu).
-#
-# ❗ Pré-requisitos
-# 1) No Firebase Console, crie um projeto e um App Web para obter a API key.
-# 2) Em Firestore → Rules, publique as regras do bloco "FIRESTORE_RULES" (abaixo).
-# 3) No Streamlit Cloud (Settings → Secrets) ou local (.streamlit/secrets.toml), defina:
-#    FIREBASE_API_KEY = "..."\nFIREBASE_PROJECT_ID = "seu-projeto"
-# 4) requirements.txt:
-#    streamlit>=1.39\nrequests>=2.32\nreportlab<4\npydantic>=2.5\ntyping-extensions>=4.8
-# 5) runtime.txt (opcional): python-3.11
-#
-# FIRESTORE_RULES (publique no console):
-# rules_version = '2';
-# service cloud.firestore {
-#   match /databases/{database}/documents {
-#     match /users/{userId}/assessments/{docId} {
-#       allow read, write: if request.auth != null && request.auth.uid == userId;
-#     }
-#   }
-# }
+# Recursos: Login/Signup, questionário (48 itens), cálculo de scores,
+# relatório HTML e PDF, persistência por usuário via Firestore.
 
 import os
 import io
@@ -34,10 +14,7 @@ from typing import Dict, List
 import requests
 import streamlit as st
 from pydantic import BaseModel, Field
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
+from fpdf import FPDF  # <<< PDF agora com fpdf2, sem reportlab
 
 # =========================
 # 🔧 Config & Secrets
@@ -45,8 +22,9 @@ from reportlab.lib import colors
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY") or st.secrets.get("FIREBASE_API_KEY", "")
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID") or st.secrets.get("FIREBASE_PROJECT_ID", "")
 
+# Aviso se secrets não estiverem configurados
 if not FIREBASE_API_KEY or not FIREBASE_PROJECT_ID:
-    st.warning("⚠️ Configure FIREBASE_API_KEY e FIREBASE_PROJECT_ID em secrets/env.")
+    st.warning("⚠️ Configure FIREBASE_API_KEY e FIREBASE_PROJECT_ID nos secrets/env para salvar no Firestore.")
 
 # =========================
 # 🔐 Firebase Auth (REST)
@@ -68,6 +46,7 @@ def fb_signin(email: str, password: str) -> Dict:
     r.raise_for_status()
     return r.json()
 
+
 # =========================
 # 📦 Firestore (REST) — users/{uid}/assessments/{doc}
 # =========================
@@ -75,7 +54,10 @@ FS_BASE = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/d
 
 
 def _fs_headers(id_token: str) -> Dict[str, str]:
-    return {"Content-Type": "application/json; charset=UTF-8", "Authorization": f"Bearer {id_token}"}
+    return {
+        "Content-Type": "application/json; charset=UTF-8",
+        "Authorization": f"Bearer {id_token}",
+    }
 
 
 def fs_create_assessment(id_token: str, uid: str, answers: dict, scores: dict, profile: dict) -> Dict:
@@ -108,8 +90,9 @@ def fs_get_latest_assessment(id_token: str, uid: str):
         "profile": json.loads(fields["profile"]["stringValue"]),
     }
 
+
 # =========================
-# 🧪 Questionário — 48 itens (como definido anteriormente)
+# 🧪 Questionário — 48 itens
 # =========================
 class Item(BaseModel):
     id: int
@@ -117,11 +100,13 @@ class Item(BaseModel):
     scale: str = "1 (Discordo) — 5 (Concordo)"
     weights: Dict[str, float] = Field(default_factory=dict)
 
+
 DISC_KEYS = ["DISC_D", "DISC_I", "DISC_S", "DISC_C"]
 B5_KEYS = ["B5_O", "B5_C", "B5_E", "B5_A", "B5_N"]
 MBTI_KEYS = ["MBTI_E", "MBTI_I", "MBTI_S", "MBTI_N", "MBTI_T", "MBTI_F", "MBTI_J", "MBTI_P"]
 
 ITEMS: List[Item] = []
+
 texts_block1 = [
     "Gosto de assumir a responsabilidade quando algo importante precisa ser feito.",
     "Tenho facilidade em enxergar soluções lógicas para problemas complexos.",
@@ -136,6 +121,7 @@ texts_block1 = [
     "Tenho facilidade em lidar com situações novas e incertas.",
     "Quando alguém discorda de mim, busco entender o ponto de vista antes de responder.",
 ]
+
 texts_block2 = [
     "Costumo esconder o que sinto para evitar conflitos.",
     "Tenho facilidade em me colocar no lugar dos outros.",
@@ -150,6 +136,7 @@ texts_block2 = [
     "Evito discutir quando percebo que o outro está com raiva.",
     "Valorizo mais o respeito e a lealdade do que a popularidade.",
 ]
+
 texts_block3 = [
     "Tenho prazer em motivar outras pessoas a atingirem resultados.",
     "Prefiro liderar a ser liderado.",
@@ -164,6 +151,7 @@ texts_block3 = [
     "Gosto de inovar, mesmo que isso traga insegurança no início.",
     "Quando lidero, busco mais eficiência do que popularidade.",
 ]
+
 texts_block4 = [
     "Acredito que tudo deve ter um propósito claro antes de ser iniciado.",
     "Tenho mais interesse em resultados práticos do que em teorias.",
@@ -182,6 +170,7 @@ texts_block4 = [
 
 def w(**kwargs):
     return kwargs
+
 
 WEIGHTS: List[Dict[str, float]] = [
     # 1-12
@@ -238,12 +227,11 @@ WEIGHTS: List[Dict[str, float]] = [
     w(MBTI_N=0.6, B5_O=0.6),
 ]
 
-# Construção da lista de itens
 ITEMS.clear()
 _id = 1
 for block in [texts_block1, texts_block2, texts_block3, texts_block4]:
     for t in block:
-        ITEMS.append(Item(id=_id, text=t, weights=WEIGHTS[_id-1]))
+        ITEMS.append(Item(id=_id, text=t, weights=WEIGHTS[_id - 1]))
         _id += 1
 
 # =========================
@@ -303,15 +291,14 @@ def compute_scores(answers: Dict[int, int]) -> ScorePack:
         }[axis_key]
 
     mbti_type = "".join([letter(k) for k in ["EI", "SN", "TF", "JP"]])
-
     return ScorePack(disc=disc_n, b5=b5_n, mbti_axis=axes, mbti_type=mbti_type)
 
 # =========================
-# 🧾 Relatórios (HTML/PDF)
+# 🧾 Relatórios (HTML / PDF)
 # =========================
-
 def build_html_report(scores: ScorePack, profile: Dict, answers: Dict[int, int]) -> str:
-    disc = scores.disc; b5 = scores.b5
+    disc = scores.disc
+    b5 = scores.b5
     return f"""
     <html><head><meta charset='utf-8'><title>Relatório NeuroMap</title>
     <style>
@@ -354,55 +341,82 @@ def build_html_report(scores: ScorePack, profile: Dict, answers: Dict[int, int])
     </body></html>
     """
 
-
 def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
-    styles = getSampleStyleSheet()
-    story = []
-    story.append(Paragraph("<b>Relatório de Personalidade – NeuroMap</b>", styles["Title"]))
-    story.append(Spacer(1, 12))
-    disc = scores.disc; b5 = scores.b5
-    story.append(Paragraph(f"<b>MBTI:</b> {scores.mbti_type}", styles["Heading2"]))
-    story.append(Paragraph(
-        f"D: {disc.get('DISC_D',0)}% — I: {disc.get('DISC_I',0)}% — S: {disc.get('DISC_S',0)}% — C: {disc.get('DISC_C',0)}%",
-        styles["BodyText"]))
-    story.append(Spacer(1, 8))
-    data = [
-        ["Dimensão (Big Five)", "%"],
-        ["Abertura", b5.get('B5_O',0)],
-        ["Conscienciosidade", b5.get('B5_C',0)],
-        ["Extroversão", b5.get('B5_E',0)],
-        ["Amabilidade", b5.get('B5_A',0)],
-        ["Estabilidade Emocional (−N)", 100 - b5.get('B5_N',0)],
-    ]
-    tbl = Table(data, colWidths=[250, 120])
-    tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f2937")),
-        ("TEXTCOLOR", (0,0), (-1,0), colors.whitesmoke),
-        ("ALIGN", (0,0), (-1,-1), "LEFT"),
-        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
-        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
-    ]))
-    story.append(tbl)
-    story.append(Spacer(1, 12))
-    story.append(Paragraph("<b>Interpretação</b>", styles["Heading2"]))
-    story.append(Paragraph(profile.get('summary',''), styles["BodyText"]))
-    story.append(Paragraph("<b>Pontos fortes:</b> " + ", ".join(profile.get('strengths', [])), styles["BodyText"]))
-    story.append(Paragraph("<b>Pontos de atenção:</b> " + ", ".join(profile.get('risks', [])), styles["BodyText"]))
-    story.append(Paragraph("<b>Recomendações:</b> " + ", ".join(profile.get('reco', [])), styles["BodyText"]))
-    doc = SimpleDocTemplate(buf, pagesize=A4)
-    doc.build(story)
+    # fpdf2 gera PDF em memória (ASCII/latin-1)
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    disc = scores.disc
+    b5 = scores.b5
+
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "Relatório de Personalidade – NeuroMap", ln=1)
+
+    pdf.set_font("Arial", "", 12)
+    pdf.ln(4)
+    pdf.cell(0, 8, f"MBTI: {scores.mbti_type}", ln=1)
+    pdf.cell(
+        0,
+        8,
+        f"D: {disc.get('DISC_D',0)}%  I: {disc.get('DISC_I',0)}%  "
+        f"S: {disc.get('DISC_S',0)}%  C: {disc.get('DISC_C',0)}%",
+        ln=1,
+    )
+
+    pdf.ln(4)
+    pdf.set_font("Arial", "B", 13)
+    pdf.cell(0, 8, "Big Five", ln=1)
+    pdf.set_font("Arial", "", 12)
+    pdf.cell(0, 6, f"Abertura (O): {b5.get('B5_O',0)}%", ln=1)
+    pdf.cell(0, 6, f"Conscienciosidade (C): {b5.get('B5_C',0)}%", ln=1)
+    pdf.cell(0, 6, f"Extroversão (E): {b5.get('B5_E',0)}%", ln=1)
+    pdf.cell(0, 6, f"Amabilidade (A): {b5.get('B5_A',0)}%", ln=1)
+    pdf.cell(0, 6, f"Estabilidade Emocional (−N): {100 - b5.get('B5_N',0)}%", ln=1)
+
+    pdf.ln(4)
+    pdf.set_font("Arial", "B", 13)
+    pdf.cell(0, 8, "Interpretação", ln=1)
+    pdf.set_font("Arial", "", 12)
+    pdf.multi_cell(0, 6, profile.get("summary", ""))
+
+    strengths = ", ".join(profile.get("strengths", []))
+    risks = ", ".join(profile.get("risks", []))
+    reco = ", ".join(profile.get("reco", []))
+
+    pdf.ln(2)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 6, "Pontos fortes:", ln=1)
+    pdf.set_font("Arial", "", 12)
+    pdf.multi_cell(0, 6, strengths or "-")
+
+    pdf.ln(2)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 6, "Pontos de atenção:", ln=1)
+    pdf.set_font("Arial", "", 12)
+    pdf.multi_cell(0, 6, risks or "-")
+
+    pdf.ln(2)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 6, "Recomendações:", ln=1)
+    pdf.set_font("Arial", "", 12)
+    pdf.multi_cell(0, 6, reco or "-")
+
+    pdf_bytes = pdf.output(dest="S").encode("latin-1")
+    buf.write(pdf_bytes)
 
 # =========================
-# 🧭 Perfil textual automático
+# 🧭 Perfil textual
 # =========================
-
 def synthesize_profile(scores: ScorePack) -> Dict:
     D = scores.disc.get("DISC_D", 0)
     S = scores.disc.get("DISC_S", 0)
     I = scores.disc.get("DISC_I", 0)
     C = scores.disc.get("DISC_C", 0)
     b5 = scores.b5
+
     strengths, risks, reco = [], [], []
+
     if D > 70:
         strengths.append("Liderança e decisão sob pressão")
         risks.append("Impaciência com lentidão/ambiguidade")
@@ -425,13 +439,20 @@ def synthesize_profile(scores: ScorePack) -> Dict:
     if b5.get("B5_N", 0) > 55:
         risks.append("Tensão interna em cenários de alto risco")
         reco.append("Práticas de regulação emocional e delegação")
+
     summary = (
-        f"MBTI sugerido: {scores.mbti_type}. Combina orientação a resultados (D {int(D)}%) com constância (S {int(S)}%) "
-        f"e método (C {int(C)}%), equilibrados por comunicação objetiva (I {int(I)}%). Big Five indica alta conscienciosidade."
+        f"MBTI sugerido: {scores.mbti_type}. Combina orientação a resultados (D {int(D)}%) "
+        f"com constância (S {int(S)}%) e método (C {int(C)}%), "
+        f"equilibrados por comunicação objetiva (I {int(I)}%). "
+        "Big Five indica alta conscienciosidade e foco em performance."
     )
-    return {"summary": summary, "strengths": strengths or ["Foco e aprendizado"],
-            "risks": risks or ["Equilíbrio entre performance e bem-estar"],
-            "reco": reco or ["Ciclos de revisão e descanso planejados"]}
+
+    return {
+        "summary": summary,
+        "strengths": strengths or ["Foco e aprendizado"],
+        "risks": risks or ["Equilíbrio entre performance e bem-estar"],
+        "reco": reco or ["Ciclos de revisão e descanso planejados"],
+    }
 
 # =========================
 # 🖥️ UI – Streamlit
@@ -448,11 +469,10 @@ if "idToken" not in st.session_state:
 if "answers" not in st.session_state:
     st.session_state.answers = {}
 
-# --- Auth UI ---
-
 def ui_auth():
     st.subheader("Login ou Cadastro (Firebase)")
     tab_l, tab_s, tab_info = st.tabs(["Entrar", "Cadastrar", "Regras Firestore"])
+
     with tab_l:
         email = st.text_input("Email")
         pwd = st.text_input("Senha", type="password")
@@ -464,6 +484,7 @@ def ui_auth():
                 st.success("Bem-vindo ao NeuroMap!")
             except Exception as e:
                 st.error(f"Falha no login: {e}")
+
     with tab_s:
         email = st.text_input("Email (cadastro)")
         pwd = st.text_input("Senha (cadastro)", type="password")
@@ -473,6 +494,7 @@ def ui_auth():
                 st.success("Conta criada. Verifique seu email e faça login.")
             except Exception as e:
                 st.error(f"Erro no cadastro: {e}")
+
     with tab_info:
         st.code(
             """rules_version = '2';
@@ -486,29 +508,29 @@ service cloud.firestore {
             language="firebase",
         )
 
-
-# --- Questionnaire UI ---
-
 def ui_questionnaire():
     st.subheader("Questionário (48 itens)")
     if not st.session_state.uid:
         st.info("Faça login para vincular e salvar sua avaliação com segurança.")
+
     c_top = st.columns(2)
     with c_top[0]:
         st.write("**Escala:** 1 Discordo totalmente — 5 Concordo totalmente")
     with c_top[1]:
         if st.button("Zerar respostas"):
             st.session_state.answers = {}
+
     for item in ITEMS:
         st.session_state.answers[item.id] = st.slider(
             f"{item.id}. {item.text}", 1, 5, int(st.session_state.answers.get(item.id, 3))
         )
+
     if st.button("🔒 Salvar e calcular meu perfil", use_container_width=True):
         scores = compute_scores(st.session_state.answers)
         profile = synthesize_profile(scores)
         st.session_state.scores = scores
         st.session_state.profile = profile
-        # Persistência se logado
+
         if st.session_state.uid and st.session_state.idToken:
             try:
                 fs_create_assessment(
@@ -529,12 +551,9 @@ def ui_questionnaire():
         else:
             st.warning("Faça login para persistir sua avaliação.")
 
-
-# --- Report UI ---
-
 def ui_report():
     st.subheader("Meu Relatório")
-    # Carrega último do Firestore se não estiver na sessão
+
     if "scores" not in st.session_state and st.session_state.uid and st.session_state.idToken:
         try:
             last = fs_get_latest_assessment(st.session_state.idToken, st.session_state.uid)
@@ -554,6 +573,7 @@ def ui_report():
 
     scores: ScorePack = st.session_state.scores
     profile: Dict = st.session_state.profile
+
     c1, c2 = st.columns(2)
     with c1:
         st.metric("MBTI", scores.mbti_type)
@@ -567,7 +587,10 @@ def ui_report():
         st.progress(int(scores.b5.get("B5_C", 0)), text=f"Conscienciosidade: {scores.b5.get('B5_C',0)}%")
         st.progress(int(scores.b5.get("B5_E", 0)), text=f"Extroversão: {scores.b5.get('B5_E',0)}%")
         st.progress(int(scores.b5.get("B5_A", 0)), text=f"Amabilidade: {scores.b5.get('B5_A',0)}%")
-        st.progress(int(100 - scores.b5.get("B5_N", 0)), text=f"Estabilidade emocional: {100 - scores.b5.get('B5_N',0)}%")
+        st.progress(
+            int(100 - scores.b5.get("B5_N", 0)),
+            text=f"Estabilidade emocional: {100 - scores.b5.get('B5_N',0)}%",
+        )
 
     st.divider()
     st.write("### Interpretação")
@@ -576,14 +599,17 @@ def ui_report():
     st.write("**Pontos de atenção**: ", ", ".join(profile.get("risks", [])))
     st.write("**Recomendações**: ", ", ".join(profile.get("reco", [])))
 
-    # Downloads
     html_str = build_html_report(scores, profile, st.session_state.answers)
     st.download_button("⬇️ Baixar HTML", data=html_str, file_name="neuromap_relatorio.html", mime="text/html")
 
     buf = io.BytesIO()
     build_pdf_report(buf, scores, profile)
-    st.download_button("⬇️ Baixar PDF", data=buf.getvalue(), file_name="neuromap_relatorio.pdf", mime="application/pdf")
-
+    st.download_button(
+        "⬇️ Baixar PDF",
+        data=buf.getvalue(),
+        file_name="neuromap_relatorio.pdf",
+        mime="application/pdf",
+    )
 
 # =========================
 # 🔁 Router
