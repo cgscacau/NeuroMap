@@ -416,8 +416,12 @@ def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
     pdf.set_font("Arial", "", 12)
     pdf.multi_cell(0, 6, pdf_safe(reco or "-"))
 
-    pdf_bytes = pdf.output(dest="S").encode("latin-1")
+    # Gera o PDF em memória (fpdf2 pode retornar str ou bytes)
+    pdf_bytes = pdf.output(dest="S")
+    if isinstance(pdf_bytes, str):
+        pdf_bytes = pdf_bytes.encode("latin-1")  # compatibilidade
     buf.write(pdf_bytes)
+
 
 
 # =========================
