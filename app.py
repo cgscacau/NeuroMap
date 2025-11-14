@@ -63,7 +63,6 @@ def _fs_headers(id_token: str) -> Dict[str, str]:
 
 
 def fs_create_assessment(id_token: str, uid: str, answers: dict, scores: dict, profile: dict) -> Dict:
-    # ❗ corrigido: sem ?mask.fieldPaths=
     url = f"{FS_BASE}/users/{uid}/assessments"
     body = {
         "fields": {
@@ -76,7 +75,6 @@ def fs_create_assessment(id_token: str, uid: str, answers: dict, scores: dict, p
     }
     r = requests.post(url, headers=_fs_headers(id_token), json=body)
     if not r.ok:
-        # ajuda a debugar caso ainda dê erro
         raise Exception(f"Firestore create error {r.status_code}: {r.text}")
     return r.json()
 
@@ -115,61 +113,61 @@ ITEMS: List[Item] = []
 
 texts_block1 = [
     "Gosto de assumir a responsabilidade quando algo importante precisa ser feito.",
-    "Tenho facilidade em enxergar soluções lógicas para problemas complexos.",
-    "Gosto de seguir métodos e padrões bem definidos.",
-    "Prefiro agir rapidamente a ficar analisando demais uma situação.",
-    "Tenho prazer em planejar as coisas com antecedência.",
-    "Fico desconfortável quando as pessoas são muito emotivas ao meu redor.",
+    "Tenho facilidade em enxergar solucoes logicas para problemas complexos.",
+    "Gosto de seguir metodos e padroes bem definidos.",
+    "Prefiro agir rapidamente a ficar analisando demais uma situacao.",
+    "Tenho prazer em planejar as coisas com antecedencia.",
+    "Fico desconfortavel quando as pessoas sao muito emotivas ao meu redor.",
     "Sinto-me motivado quando enfrento grandes desafios.",
     "Quando erro, costumo me cobrar mais do que os outros cobrariam.",
-    "Gosto de aprender coisas novas, mesmo que não sejam úteis de imediato.",
+    "Gosto de aprender coisas novas, mesmo que nao sejam uteis de imediato.",
     "Prefiro ter controle total de um projeto a depender de outras pessoas.",
-    "Tenho facilidade em lidar com situações novas e incertas.",
-    "Quando alguém discorda de mim, busco entender o ponto de vista antes de responder.",
+    "Tenho facilidade em lidar com situacoes novas e incertas.",
+    "Quando alguem discorda de mim, busco entender o ponto de vista antes de responder.",
 ]
 
 texts_block2 = [
     "Costumo esconder o que sinto para evitar conflitos.",
     "Tenho facilidade em me colocar no lugar dos outros.",
-    "Fico incomodado quando as pessoas não cumprem o que prometem.",
-    "Gosto de estar rodeado de pessoas e conversar sobre vários assuntos.",
-    "Quando estou sob pressão, consigo manter a calma e pensar com clareza.",
-    "Tenho dificuldade em aceitar críticas, mesmo quando são construtivas.",
+    "Fico incomodado quando as pessoas nao cumprem o que prometem.",
+    "Gosto de estar rodeado de pessoas e conversar sobre varios assuntos.",
+    "Quando estou sob pressao, consigo manter a calma e pensar com clareza.",
+    "Tenho dificuldade em aceitar criticas, mesmo quando sao construtivas.",
     "Gosto de ajudar os outros, mesmo que isso atrase minhas tarefas.",
-    "Em situações tensas, minha primeira reação costuma ser emocional.",
+    "Em situacoes tensas, minha primeira reacao costuma ser emocional.",
     "Prefiro ambientes tranquilos e organizados aos muito agitados.",
-    "Tenho facilidade em expressar afeto e demonstrar apreço às pessoas.",
-    "Evito discutir quando percebo que o outro está com raiva.",
+    "Tenho facilidade em expressar afeto e demonstrar apreco as pessoas.",
+    "Evito discutir quando percebo que o outro esta com raiva.",
     "Valorizo mais o respeito e a lealdade do que a popularidade.",
 ]
 
 texts_block3 = [
     "Tenho prazer em motivar outras pessoas a atingirem resultados.",
     "Prefiro liderar a ser liderado.",
-    "Gosto de trabalhar em equipe, mesmo que precise ceder em algumas decisões.",
-    "Quando algo dá errado, costumo analisar friamente o que aconteceu.",
-    "Evito correr riscos quando não tenho todas as informações.",
+    "Gosto de trabalhar em equipe, mesmo que precise ceder em algumas decisoes.",
+    "Quando algo da errado, costumo analisar friamente o que aconteceu.",
+    "Evito correr riscos quando nao tenho todas as informacoes.",
     "Sinto-me energizado quando estou aprendendo algo desafiador.",
     "Sou mais produtivo quando tenho liberdade para decidir como fazer meu trabalho.",
-    "Prefiro metas claras e mensuráveis a objetivos vagos.",
-    "Quando uma ideia é boa, gosto de colocá-la em prática imediatamente.",
-    "Costumo assumir o papel de mediador quando há conflito em grupo.",
-    "Gosto de inovar, mesmo que isso traga insegurança no início.",
-    "Quando lidero, busco mais eficiência do que popularidade.",
+    "Prefiro metas claras e mensuraveis a objetivos vagos.",
+    "Quando uma ideia e boa, gosto de coloca-la em pratica imediatamente.",
+    "Costumo assumir o papel de mediador quando ha conflito em grupo.",
+    "Gosto de inovar, mesmo que isso traga inseguranca no inicio.",
+    "Quando lidero, busco mais eficiencia do que popularidade.",
 ]
 
 texts_block4 = [
-    "Acredito que tudo deve ter um propósito claro antes de ser iniciado.",
-    "Tenho mais interesse em resultados práticos do que em teorias.",
-    "Busco equilíbrio entre razão e emoção em minhas decisões.",
-    "Valorizo disciplina mais do que inspiração.",
+    "Acredito que tudo deve ter um proposito claro antes de ser iniciado.",
+    "Tenho mais interesse em resultados praticos do que em teorias.",
+    "Busco equilibrio entre razao e emocao em minhas decisoes.",
+    "Valorizo disciplina mais do que inspiracao.",
     "Acredito que as pessoas devem ser julgadas pelos resultados que entregam.",
-    "Tenho curiosidade sobre temas filosóficos e existenciais.",
+    "Tenho curiosidade sobre temas filosoficos e existenciais.",
     "Gosto de assumir desafios que me tiram da zona de conforto.",
-    "Sinto-me realizado quando consigo ensinar ou orientar alguém.",
-    "Acredito que o autoconhecimento é essencial para o sucesso.",
+    "Sinto-me realizado quando consigo ensinar ou orientar alguem.",
+    "Acredito que o autoconhecimento e essencial para o sucesso.",
     "Prefiro ser respeitado a ser admirado.",
-    "Tenho um senso de missão pessoal no que faço.",
+    "Tenho um senso de missao pessoal no que faco.",
     "Busco deixar um legado positivo no ambiente onde atuo.",
 ]
 
@@ -302,13 +300,14 @@ def compute_scores(answers: Dict[int, int]) -> ScorePack:
 
 
 # =========================
-# 🧾 Relatórios (HTML / PDF com fpdf2)
+# 🧾 Relatórios (HTML / PDF)
 # =========================
+
 def build_html_report(scores: ScorePack, profile: Dict, answers: Dict[int, int]) -> str:
     disc = scores.disc
     b5 = scores.b5
     return f"""
-    <html><head><meta charset='utf-8'><title>Relatório NeuroMap</title>
+    <html><head><meta charset='utf-8'><title>Relatorio NeuroMap</title>
     <style>
       body {{ font-family: Arial, sans-serif; background:#0b0f17; color:#e6edf3; }}
       .card {{ background:#121826; padding:18px; border-radius:12px; margin:12px 0; }}
@@ -318,7 +317,7 @@ def build_html_report(scores: ScorePack, profile: Dict, answers: Dict[int, int])
       th {{ text-align:left; color:#a8c7fa; }}
       .pill {{ display:inline-block; padding:4px 10px; border-radius:999px; background:#1e2a44; margin-right:6px; }}
     </style></head><body>
-      <h1>Relatório de Personalidade – NeuroMap</h1>
+      <h1>Relatorio de Personalidade - NeuroMap</h1>
       <div class='card'>
         <h2>Resumo</h2>
         <p><span class='pill'>MBTI: <b>{scores.mbti_type}</b></span>
@@ -332,22 +331,27 @@ def build_html_report(scores: ScorePack, profile: Dict, answers: Dict[int, int])
         <table>
           <tr><th>Abertura (O)</th><td>{b5.get('B5_O',0)}%</td></tr>
           <tr><th>Conscienciosidade (C)</th><td>{b5.get('B5_C',0)}%</td></tr>
-          <tr><th>Extroversão (E)</th><td>{b5.get('B5_E',0)}%</td></tr>
+          <tr><th>Extroversao (E)</th><td>{b5.get('B5_E',0)}%</td></tr>
           <tr><th>Amabilidade (A)</th><td>{b5.get('B5_A',0)}%</td></tr>
-          <tr><th>Estabilidade Emocional (−N)</th><td>{100 - b5.get('B5_N',0)}%</td></tr>
+          <tr><th>Estabilidade Emocional (-N)</th><td>{100 - b5.get('B5_N',0)}%</td></tr>
         </table>
       </div>
       <div class='card'>
-        <h2>Interpretação</h2>
+        <h2>Interpretacao</h2>
         <p>{profile.get('summary','')}</p>
         <ul>
           <li><b>Pontos fortes:</b> {', '.join(profile.get('strengths', []))}</li>
-          <li><b>Pontos de atenção:</b> {', '.join(profile.get('risks', []))}</li>
-          <li><b>Recomendações:</b> {', '.join(profile.get('reco', []))}</li>
+          <li><b>Pontos de atencao:</b> {', '.join(profile.get('risks', []))}</li>
+          <li><b>Recomendacoes:</b> {', '.join(profile.get('reco', []))}</li>
         </ul>
       </div>
     </body></html>
     """
+
+
+# helper para garantir que o texto esta em latin-1
+def pdf_safe(text: str) -> str:
+    return text.encode("latin-1", "replace").decode("latin-1")
 
 
 def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
@@ -359,34 +363,36 @@ def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
     b5 = scores.b5
 
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, "Relatório de Personalidade – NeuroMap", ln=1)
+    pdf.cell(0, 10, pdf_safe("Relatorio de Personalidade - NeuroMap"), ln=1)
 
     pdf.set_font("Arial", "", 12)
     pdf.ln(4)
-    pdf.cell(0, 8, f"MBTI: {scores.mbti_type}", ln=1)
+    pdf.cell(0, 8, pdf_safe(f"MBTI: {scores.mbti_type}"), ln=1)
     pdf.cell(
         0,
         8,
-        f"D: {disc.get('DISC_D',0)}%  I: {disc.get('DISC_I',0)}%  "
-        f"S: {disc.get('DISC_S',0)}%  C: {disc.get('DISC_C',0)}%",
+        pdf_safe(
+            f"D: {disc.get('DISC_D',0)}%  I: {disc.get('DISC_I',0)}%  "
+            f"S: {disc.get('DISC_S',0)}%  C: {disc.get('DISC_C',0)}%"
+        ),
         ln=1,
     )
 
     pdf.ln(4)
     pdf.set_font("Arial", "B", 13)
-    pdf.cell(0, 8, "Big Five", ln=1)
+    pdf.cell(0, 8, pdf_safe("Big Five"), ln=1)
     pdf.set_font("Arial", "", 12)
-    pdf.cell(0, 6, f"Abertura (O): {b5.get('B5_O',0)}%", ln=1)
-    pdf.cell(0, 6, f"Conscienciosidade (C): {b5.get('B5_C',0)}%", ln=1)
-    pdf.cell(0, 6, f"Extroversão (E): {b5.get('B5_E',0)}%", ln=1)
-    pdf.cell(0, 6, f"Amabilidade (A): {b5.get('B5_A',0)}%", ln=1)
-    pdf.cell(0, 6, f"Estabilidade Emocional (−N): {100 - b5.get('B5_N',0)}%", ln=1)
+    pdf.cell(0, 6, pdf_safe(f"Abertura (O): {b5.get('B5_O',0)}%"), ln=1)
+    pdf.cell(0, 6, pdf_safe(f"Conscienciosidade (C): {b5.get('B5_C',0)}%"), ln=1)
+    pdf.cell(0, 6, pdf_safe(f"Extroversao (E): {b5.get('B5_E',0)}%"), ln=1)
+    pdf.cell(0, 6, pdf_safe(f"Amabilidade (A): {b5.get('B5_A',0)}%"), ln=1)
+    pdf.cell(0, 6, pdf_safe(f"Estabilidade Emocional (-N): {100 - b5.get('B5_N',0)}%"), ln=1)
 
     pdf.ln(4)
     pdf.set_font("Arial", "B", 13)
-    pdf.cell(0, 8, "Interpretação", ln=1)
+    pdf.cell(0, 8, pdf_safe("Interpretacao"), ln=1)
     pdf.set_font("Arial", "", 12)
-    pdf.multi_cell(0, 6, profile.get("summary", ""))
+    pdf.multi_cell(0, 6, pdf_safe(profile.get("summary", "")))
 
     strengths = ", ".join(profile.get("strengths", []))
     risks = ", ".join(profile.get("risks", []))
@@ -394,21 +400,21 @@ def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
 
     pdf.ln(2)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 6, "Pontos fortes:", ln=1)
+    pdf.cell(0, 6, pdf_safe("Pontos fortes:"), ln=1)
     pdf.set_font("Arial", "", 12)
-    pdf.multi_cell(0, 6, strengths or "-")
+    pdf.multi_cell(0, 6, pdf_safe(strengths or "-"))
 
     pdf.ln(2)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 6, "Pontos de atenção:", ln=1)
+    pdf.cell(0, 6, pdf_safe("Pontos de atencao:"), ln=1)
     pdf.set_font("Arial", "", 12)
-    pdf.multi_cell(0, 6, risks or "-")
+    pdf.multi_cell(0, 6, pdf_safe(risks or "-"))
 
     pdf.ln(2)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 6, "Recomendações:", ln=1)
+    pdf.cell(0, 6, pdf_safe("Recomendacoes:"), ln=1)
     pdf.set_font("Arial", "", 12)
-    pdf.multi_cell(0, 6, reco or "-")
+    pdf.multi_cell(0, 6, pdf_safe(reco or "-"))
 
     pdf_bytes = pdf.output(dest="S").encode("latin-1")
     buf.write(pdf_bytes)
@@ -427,50 +433,50 @@ def synthesize_profile(scores: ScorePack) -> Dict:
     strengths, risks, reco = [], [], []
 
     if D > 70:
-        strengths.append("Liderança e decisão sob pressão")
-        risks.append("Impaciência com lentidão/ambiguidade")
+        strengths.append("Lideranca e decisao sob pressao")
+        risks.append("Impaciencia com lentidao/ambiguidade")
         reco.append("Praticar empatia situacional ao cobrar resultados")
     if S > 65:
-        strengths.append("Consistência e autocontrole emocional")
-        reco.append("Equilibrar constância com experimentação")
+        strengths.append("Consistencia e autocontrole emocional")
+        reco.append("Equilibrar constancia com experimentacao")
     if C > 60:
-        strengths.append("Qualidade, método e padrão elevado")
-        risks.append("Possível rigidez ou microgestão")
-        reco.append("Definir critérios de 'bom o suficiente'")
+        strengths.append("Qualidade, metodo e padrao elevado")
+        risks.append("Possivel rigidez ou microgestao")
+        reco.append("Definir criterios de 'bom o suficiente'")
     if I > 55:
-        strengths.append("Comunicação e influência objetivas")
+        strengths.append("Comunicacao e influencia objetivas")
     if b5.get("B5_O", 0) > 60:
-        strengths.append("Curiosidade intelectual e visão de futuro")
+        strengths.append("Curiosidade intelectual e visao de futuro")
     if b5.get("B5_C", 0) > 70:
-        strengths.append("Disciplina e execução confiável")
-        risks.append("Autoexigência acima do saudável")
-        reco.append("Celebrar marcos e instituir pausas estratégicas")
+        strengths.append("Disciplina e execucao confiavel")
+        risks.append("Autoexigencia acima do saudavel")
+        reco.append("Celebrar marcos e instituir pausas estrategicas")
     if b5.get("B5_N", 0) > 55:
-        risks.append("Tensão interna em cenários de alto risco")
-        reco.append("Práticas de regulação emocional e delegação")
+        risks.append("Tensao interna em cenarios de alto risco")
+        reco.append("Praticas de regulacao emocional e delegacao")
 
     summary = (
-        f"MBTI sugerido: {scores.mbti_type}. Combina orientação a resultados (D {int(D)}%) "
-        f"com constância (S {int(S)}%) e método (C {int(C)}%), "
-        f"equilibrados por comunicação objetiva (I {int(I)}%). "
+        f"MBTI sugerido: {scores.mbti_type}. Combina orientacao a resultados (D {int(D)}%) "
+        f"com constancia (S {int(S)}%) e metodo (C {int(C)}%), "
+        f"equilibrados por comunicacao objetiva (I {int(I)}%). "
         "Big Five indica alta conscienciosidade e foco em performance."
     )
 
     return {
         "summary": summary,
         "strengths": strengths or ["Foco e aprendizado"],
-        "risks": risks or ["Equilíbrio entre performance e bem-estar"],
-        "reco": reco or ["Ciclos de revisão e descanso planejados"],
+        "risks": risks or ["Equilibrio entre performance e bem-estar"],
+        "reco": reco or ["Ciclos de revisao e descanso planejados"],
     }
 
 
 # =========================
 # 🖥️ UI – Streamlit
 # =========================
-st.set_page_config(page_title="NeuroMap – Avaliação", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="NeuroMap – Avaliacao", page_icon="🧠", layout="wide")
 
 st.sidebar.title("🧠 NeuroMap")
-mode = st.sidebar.radio("Navegação", ["Login / Cadastro", "Questionário", "Meu Relatório"], index=0)
+mode = st.sidebar.radio("Navegacao", ["Login / Cadastro", "Questionario", "Meu Relatorio"], index=0)
 
 if "uid" not in st.session_state:
     st.session_state.uid = None
@@ -502,7 +508,7 @@ def ui_auth():
         if st.button("Criar conta", use_container_width=True):
             try:
                 fb_signup(email, pwd)
-                st.success("Conta criada. Verifique seu email e faça login.")
+                st.success("Conta criada. Verifique seu email e faca login.")
             except Exception as e:
                 st.error(f"Erro no cadastro: {e}")
 
@@ -521,9 +527,9 @@ service cloud.firestore {
 
 
 def ui_questionnaire():
-    st.subheader("Questionário (48 itens)")
+    st.subheader("Questionario (48 itens)")
     if not st.session_state.uid:
-        st.info("Faça login para vincular e salvar sua avaliação com segurança.")
+        st.info("Faca login para vincular e salvar sua avaliacao com seguranca.")
 
     c_top = st.columns(2)
     with c_top[0]:
@@ -557,15 +563,15 @@ def ui_questionnaire():
                     },
                     profile,
                 )
-                st.success("Avaliação salva no Firestore.")
+                st.success("Avaliacao salva no Firestore.")
             except Exception as e:
                 st.error(f"Erro ao salvar no Firestore: {e}")
         else:
-            st.warning("Faça login para persistir sua avaliação.")
+            st.warning("Faca login para persistir sua avaliacao.")
 
 
 def ui_report():
-    st.subheader("Meu Relatório")
+    st.subheader("Meu Relatorio")
 
     if "scores" not in st.session_state and st.session_state.uid and st.session_state.idToken:
         try:
@@ -578,10 +584,10 @@ def ui_report():
                 )
                 st.session_state.profile = last["profile"]
         except Exception as e:
-            st.error(f"Erro ao carregar relatório: {e}")
+            st.error(f"Erro ao carregar relatorio: {e}")
 
     if "scores" not in st.session_state:
-        st.info("Você ainda não gerou um relatório. Vá em 'Questionário'.")
+        st.info("Voce ainda nao gerou um relatorio. Va em 'Questionario'.")
         return
 
     scores: ScorePack = st.session_state.scores
@@ -590,15 +596,15 @@ def ui_report():
     c1, c2 = st.columns(2)
     with c1:
         st.metric("MBTI", scores.mbti_type)
-        st.progress(int(scores.disc.get("DISC_D", 0)), text=f"Dominância: {scores.disc.get('DISC_D',0)}%")
-        st.progress(int(scores.disc.get("DISC_I", 0)), text=f"Influência: {scores.disc.get('DISC_I',0)}%")
+        st.progress(int(scores.disc.get("DISC_D", 0)), text=f"Dominancia: {scores.disc.get('DISC_D',0)}%")
+        st.progress(int(scores.disc.get("DISC_I", 0)), text=f"Influencia: {scores.disc.get('DISC_I',0)}%")
         st.progress(int(scores.disc.get("DISC_S", 0)), text=f"Estabilidade: {scores.disc.get('DISC_S',0)}%")
         st.progress(int(scores.disc.get("DISC_C", 0)), text=f"Conformidade: {scores.disc.get('DISC_C',0)}%")
     with c2:
         st.write("### Big Five")
         st.progress(int(scores.b5.get("B5_O", 0)), text=f"Abertura: {scores.b5.get('B5_O',0)}%")
         st.progress(int(scores.b5.get("B5_C", 0)), text=f"Conscienciosidade: {scores.b5.get('B5_C',0)}%")
-        st.progress(int(scores.b5.get("B5_E", 0)), text=f"Extroversão: {scores.b5.get('B5_E',0)}%")
+        st.progress(int(scores.b5.get("B5_E", 0)), text=f"Extroversao: {scores.b5.get('B5_E',0)}%")
         st.progress(int(scores.b5.get("B5_A", 0)), text=f"Amabilidade: {scores.b5.get('B5_A',0)}%")
         st.progress(
             int(100 - scores.b5.get("B5_N", 0)),
@@ -606,11 +612,11 @@ def ui_report():
         )
 
     st.divider()
-    st.write("### Interpretação")
+    st.write("### Interpretacao")
     st.write(profile.get("summary", ""))
     st.write("**Pontos fortes**: ", ", ".join(profile.get("strengths", [])))
-    st.write("**Pontos de atenção**: ", ", ".join(profile.get("risks", [])))
-    st.write("**Recomendações**: ", ", ".join(profile.get("reco", [])))
+    st.write("**Pontos de atencao**: ", ", ".join(profile.get("risks", [])))
+    st.write("**Recomendacoes**: ", ", ".join(profile.get("reco", [])))
 
     html_str = build_html_report(scores, profile, st.session_state.answers)
     st.download_button("⬇️ Baixar HTML", data=html_str, file_name="neuromap_relatorio.html", mime="text/html")
@@ -630,7 +636,7 @@ def ui_report():
 # =========================
 if mode == "Login / Cadastro":
     ui_auth()
-elif mode == "Questionário":
+elif mode == "Questionario":
     ui_questionnaire()
 else:
     ui_report()
