@@ -83,25 +83,23 @@ def fs_create_assessment(id_token: str, uid: str, answers: dict, scores: dict, p
 
 
 def fs_get_latest_assessment(id_token: str, uid: str):
-    # Agora lemos diretamente o doc do usuário (snapshot da última avaliação)
-    url = f"{FS_BASE}/users/{uid}"
+    # Busca o documento mais recente na subcolecao users/{uid}/assessments,
+    # ordenando pelo campo de timestamp "ts" que nos salvamos.
+    url = f"{FS_BASE}/users/{uid}/assessments?pageSize=1&orderBy=ts desc"
     r = requests.get(url, headers=_fs_headers(id_token))
     if not r.ok:
-        raise Exception(f"Firestore get latest error {r.status_code}: {r.text}")
+        raise Exception(f"Firestore get error {r.status_code}: {r.text}")
 
     data = r.json()
-    fields = data.get("fields", {})
-    if not fields:
+    docs = data.get("documents", [])
+    if not docs:
         return None
 
-    # Se ainda não tiver avaliação salva, simplesmente retorna None
-    if "last_answers" not in fields or "last_scores" not in fields or "last_profile" not in fields:
-        return None
-
+    fields = docs[0]["fields"]
     return {
-        "answers": json.loads(fields["last_answers"]["stringValue"]),
-        "scores": json.loads(fields["last_scores"]["stringValue"]),
-        "profile": json.loads(fields["last_profile"]["stringValue"]),
+        "answers": json.loads(fields["answers"]["stringValue"]),
+        "scores": json.loads(fields["scores"]["stringValue"]),
+        "profile": json.loads(fields["profile"]["stringValue"]),
     }
 
 
