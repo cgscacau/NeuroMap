@@ -1,6 +1,5 @@
 streamlit>=1.39
-pydantic>=2.5
-supabase>=2.6
+requests>=2.32
 reportlab<4
-httpx>=0.27
+pydantic>=2.5
 typing-extensions>=4.8
