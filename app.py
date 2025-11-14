@@ -1,76 +1,126 @@
-# app.py — Sistema de Avaliação de Personalidade (DISC + Big Five + MBTI)
-# Requisitos:
-#   pip install streamlit supabase "reportlab<4" pydantic
-# Execução local:
-#   export SUPABASE_URL=...; export SUPABASE_ANON_KEY=...
-#   streamlit run app.py
-# Observação: este app é single-file e multipáginas via abas. Para produção, recomendo
-# separar em módulos, mas aqui mantemos tudo em um arquivo para facilitar o deploy inicial.
+# app.py — NeuroMap (Firebase Edition)
+# ================================
+# Avaliação de personalidade (DISC + Big Five + MBTI)
+# Stack: Python + Streamlit + Firebase Auth + Firestore (REST)
+# Recursos: Login/Signup, questionário (48 itens), cálculo de scores, relatório HTML/PDF,
+#           persistência por usuário com segurança via Rules (cada um só vê o que é seu).
+#
+# ❗ Pré-requisitos
+# 1) No Firebase Console, crie um projeto e um App Web para obter a API key.
+# 2) Em Firestore → Rules, publique as regras do bloco "FIRESTORE_RULES" (abaixo).
+# 3) No Streamlit Cloud (Settings → Secrets) ou local (.streamlit/secrets.toml), defina:
+#    FIREBASE_API_KEY = "..."\nFIREBASE_PROJECT_ID = "seu-projeto"
+# 4) requirements.txt:
+#    streamlit>=1.39\nrequests>=2.32\nreportlab<4\npydantic>=2.5\ntyping-extensions>=4.8
+# 5) runtime.txt (opcional): python-3.11
+#
+# FIRESTORE_RULES (publique no console):
+# rules_version = '2';
+# service cloud.firestore {
+#   match /databases/{database}/documents {
+#     match /users/{userId}/assessments/{docId} {
+#       allow read, write: if request.auth != null && request.auth.uid == userId;
+#     }
+#   }
+# }
 
 import os
 import io
 import json
 import datetime as dt
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
+import requests
 import streamlit as st
 from pydantic import BaseModel, Field
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
 # =========================
-# 🔐 SUPABASE CLIENT (Auth + DB)
+# 🔧 Config & Secrets
 # =========================
-try:
-    from supabase import create_client, Client
-    SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-    SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY", "")
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
-except Exception as e:
-    supabase = None
+FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY") or st.secrets.get("FIREBASE_API_KEY", "")
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID") or st.secrets.get("FIREBASE_PROJECT_ID", "")
+
+if not FIREBASE_API_KEY or not FIREBASE_PROJECT_ID:
+    st.warning("⚠️ Configure FIREBASE_API_KEY e FIREBASE_PROJECT_ID em secrets/env.")
 
 # =========================
-# 🧱 SCHEMA (SQL) — criar no Supabase
+# 🔐 Firebase Auth (REST)
 # =========================
-SCHEMA_SQL = """
--- Tabela de usuários (opcional — pode usar auth.users nativo do Supabase)
--- Neste exemplo usaremos apenas auth.users e gravaremos o user_id nas avaliações.
+AUTH_SIGNUP_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={key}"
+AUTH_SIGNIN_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={key}"
 
-create table if not exists assessments (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
-  answers jsonb not null,          -- respostas cruas
-  scores jsonb not null,           -- pontuações calculadas
-  profile jsonb not null,          -- perfis (DISC/B5/MBTI)
-  created_at timestamptz default now()
-);
 
--- Política Row Level Security: apenas o dono lê/escreve
-alter table assessments enable row level security;
-create policy "insert_own" on assessments for insert with check (auth.uid() = user_id);
-create policy "select_own" on assessments for select using (auth.uid() = user_id);
-""".strip()
+def fb_signup(email: str, password: str) -> Dict:
+    url = AUTH_SIGNUP_URL.format(key=FIREBASE_API_KEY)
+    r = requests.post(url, json={"email": email, "password": password, "returnSecureToken": True})
+    r.raise_for_status()
+    return r.json()  # idToken, refreshToken, localId (uid)
+
+
+def fb_signin(email: str, password: str) -> Dict:
+    url = AUTH_SIGNIN_URL.format(key=FIREBASE_API_KEY)
+    r = requests.post(url, json={"email": email, "password": password, "returnSecureToken": True})
+    r.raise_for_status()
+    return r.json()
 
 # =========================
-# 🧪 Questionário — Banco simplificado (exemplos)
-# Para produção, amplie as questões e ajuste pesos. Mantemos 48 itens (12 por bloco) conforme conversa.
-# Cada item mapeia para uma dimensão alvo.
+# 📦 Firestore (REST) — users/{uid}/assessments/{doc}
+# =========================
+FS_BASE = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents"
+
+
+def _fs_headers(id_token: str) -> Dict[str, str]:
+    return {"Content-Type": "application/json; charset=UTF-8", "Authorization": f"Bearer {id_token}"}
+
+
+def fs_create_assessment(id_token: str, uid: str, answers: dict, scores: dict, profile: dict) -> Dict:
+    url = f"{FS_BASE}/users/{uid}/assessments?mask.fieldPaths="
+    body = {
+        "fields": {
+            "answers": {"stringValue": json.dumps(answers, ensure_ascii=False)},
+            "scores": {"stringValue": json.dumps(scores, ensure_ascii=False)},
+            "profile": {"stringValue": json.dumps(profile, ensure_ascii=False)},
+            "owner_uid": {"stringValue": uid},
+            "ts": {"timestampValue": dt.datetime.utcnow().isoformat() + "Z"},
+        }
+    }
+    r = requests.post(url, headers=_fs_headers(id_token), json=body)
+    r.raise_for_status()
+    return r.json()
+
+
+def fs_get_latest_assessment(id_token: str, uid: str):
+    url = f"{FS_BASE}/users/{uid}/assessments?pageSize=1&orderBy=createTime desc"
+    r = requests.get(url, headers=_fs_headers(id_token))
+    r.raise_for_status()
+    docs = r.json().get("documents", [])
+    if not docs:
+        return None
+    fields = docs[0]["fields"]
+    return {
+        "answers": json.loads(fields["answers"]["stringValue"]),
+        "scores": json.loads(fields["scores"]["stringValue"]),
+        "profile": json.loads(fields["profile"]["stringValue"]),
+    }
+
+# =========================
+# 🧪 Questionário — 48 itens (como definido anteriormente)
 # =========================
 class Item(BaseModel):
     id: int
     text: str
     scale: str = "1 (Discordo) — 5 (Concordo)"
-    weights: Dict[str, float] = Field(default_factory=dict)  # chaves entre {DISC_*, B5_*, MBTI_*}
+    weights: Dict[str, float] = Field(default_factory=dict)
 
-# Dimensões alvo
 DISC_KEYS = ["DISC_D", "DISC_I", "DISC_S", "DISC_C"]
 B5_KEYS = ["B5_O", "B5_C", "B5_E", "B5_A", "B5_N"]
 MBTI_KEYS = ["MBTI_E", "MBTI_I", "MBTI_S", "MBTI_N", "MBTI_T", "MBTI_F", "MBTI_J", "MBTI_P"]
 
-# Banco de questões (resumo do que construímos — 48 itens)
 ITEMS: List[Item] = []
 texts_block1 = [
     "Gosto de assumir a responsabilidade quando algo importante precisa ser feito.",
@@ -86,7 +136,6 @@ texts_block1 = [
     "Tenho facilidade em lidar com situações novas e incertas.",
     "Quando alguém discorda de mim, busco entender o ponto de vista antes de responder.",
 ]
-
 texts_block2 = [
     "Costumo esconder o que sinto para evitar conflitos.",
     "Tenho facilidade em me colocar no lugar dos outros.",
@@ -101,7 +150,6 @@ texts_block2 = [
     "Evito discutir quando percebo que o outro está com raiva.",
     "Valorizo mais o respeito e a lealdade do que a popularidade.",
 ]
-
 texts_block3 = [
     "Tenho prazer em motivar outras pessoas a atingirem resultados.",
     "Prefiro liderar a ser liderado.",
@@ -116,7 +164,6 @@ texts_block3 = [
     "Gosto de inovar, mesmo que isso traga insegurança no início.",
     "Quando lidero, busco mais eficiência do que popularidade.",
 ]
-
 texts_block4 = [
     "Acredito que tudo deve ter um propósito claro antes de ser iniciado.",
     "Tenho mais interesse em resultados práticos do que em teorias.",
@@ -132,8 +179,6 @@ texts_block4 = [
     "Busco deixar um legado positivo no ambiente onde atuo.",
 ]
 
-# Atribuição simplificada de pesos para cada item (pode ser refinado)
-# Ideia: cada item pesa em 2-3 dimensões. Escore bruto é soma ponderada.
 
 def w(**kwargs):
     return kwargs
@@ -193,10 +238,11 @@ WEIGHTS: List[Dict[str, float]] = [
     w(MBTI_N=0.6, B5_O=0.6),
 ]
 
-# Monta ITEMS
+# Construção da lista de itens
+ITEMS.clear()
 _id = 1
-for txts in [texts_block1, texts_block2, texts_block3, texts_block4]:
-    for t in txts:
+for block in [texts_block1, texts_block2, texts_block3, texts_block4]:
+    for t in block:
         ITEMS.append(Item(id=_id, text=t, weights=WEIGHTS[_id-1]))
         _id += 1
 
@@ -216,7 +262,6 @@ def compute_scores(answers: Dict[int, int]) -> ScorePack:
     b5 = {k: 0.0 for k in B5_KEYS}
     mbti = {k: 0.0 for k in MBTI_KEYS}
 
-    # acumula ponderado
     for item in ITEMS:
         v = float(answers.get(item.id, 0))
         for k, wv in item.weights.items():
@@ -227,7 +272,6 @@ def compute_scores(answers: Dict[int, int]) -> ScorePack:
             elif k.startswith("MBTI_"):
                 mbti[k] += v * wv
 
-    # Normalização simples 0-100 (heurstica)
     def normalize(d: Dict[str, float]) -> Dict[str, float]:
         if not d:
             return {}
@@ -239,7 +283,6 @@ def compute_scores(answers: Dict[int, int]) -> ScorePack:
     disc_n = normalize(disc)
     b5_n = normalize(b5)
 
-    # MBTI tipo a partir dos eixos
     def axis(a_pos: str, a_neg: str) -> float:
         return mbti.get(a_pos, 0.0) - mbti.get(a_neg, 0.0)
 
@@ -250,30 +293,27 @@ def compute_scores(answers: Dict[int, int]) -> ScorePack:
         "JP": axis("MBTI_J", "MBTI_P"),
     }
 
-    def axis_letter(axis_key: str) -> str:
+    def letter(axis_key: str) -> str:
         v = axes[axis_key]
-        if axis_key == "EI":
-            return "E" if v >= 0 else "I"
-        if axis_key == "SN":
-            return "S" if v >= 0 else "N"
-        if axis_key == "TF":
-            return "T" if v >= 0 else "F"
-        if axis_key == "JP":
-            return "J" if v >= 0 else "P"
-        return "?"
+        return {
+            "EI": "E" if v >= 0 else "I",
+            "SN": "S" if v >= 0 else "N",
+            "TF": "T" if v >= 0 else "F",
+            "JP": "J" if v >= 0 else "P",
+        }[axis_key]
 
-    mbti_type = "".join([axis_letter(k) for k in ["EI", "SN", "TF", "JP"]])
+    mbti_type = "".join([letter(k) for k in ["EI", "SN", "TF", "JP"]])
 
     return ScorePack(disc=disc_n, b5=b5_n, mbti_axis=axes, mbti_type=mbti_type)
 
 # =========================
-# 🧾 Relatórios (HTML e PDF)
+# 🧾 Relatórios (HTML/PDF)
 # =========================
 
 def build_html_report(scores: ScorePack, profile: Dict, answers: Dict[int, int]) -> str:
     disc = scores.disc; b5 = scores.b5
-    html = f"""
-    <html><head><meta charset='utf-8'><title>Relatório de Personalidade</title>
+    return f"""
+    <html><head><meta charset='utf-8'><title>Relatório NeuroMap</title>
     <style>
       body {{ font-family: Arial, sans-serif; background:#0b0f17; color:#e6edf3; }}
       .card {{ background:#121826; padding:18px; border-radius:12px; margin:12px 0; }}
@@ -283,55 +323,50 @@ def build_html_report(scores: ScorePack, profile: Dict, answers: Dict[int, int])
       th {{ text-align:left; color:#a8c7fa; }}
       .pill {{ display:inline-block; padding:4px 10px; border-radius:999px; background:#1e2a44; margin-right:6px; }}
     </style></head><body>
-    <h1>Relatório de Personalidade</h1>
-    <div class='card'>
-      <h2>Resumo</h2>
-      <p><span class='pill'>MBTI: <b>{scores.mbti_type}</b></span>
-         <span class='pill'>D: {disc.get('DISC_D',0)}%</span>
-         <span class='pill'>I: {disc.get('DISC_I',0)}%</span>
-         <span class='pill'>S: {disc.get('DISC_S',0)}%</span>
-         <span class='pill'>C: {disc.get('DISC_C',0)}%</span></p>
-    </div>
-    <div class='card'>
-      <h2>Big Five</h2>
-      <table>
-        <tr><th>Abertura (O)</th><td>{b5.get('B5_O',0)}%</td></tr>
-        <tr><th>Conscienciosidade (C)</th><td>{b5.get('B5_C',0)}%</td></tr>
-        <tr><th>Extroversão (E)</th><td>{b5.get('B5_E',0)}%</td></tr>
-        <tr><th>Amabilidade (A)</th><td>{b5.get('B5_A',0)}%</td></tr>
-        <tr><th>Estab. Emocional (−N)</th><td>{100 - b5.get('B5_N',0)}%</td></tr>
-      </table>
-    </div>
-    <div class='card'>
-      <h2>Interpretação</h2>
-      <p>{profile.get('summary','')}</p>
-      <ul>
-        <li><b>Pontos fortes:</b> {', '.join(profile.get('strengths', []))}</li>
-        <li><b>Pontos de atenção:</b> {', '.join(profile.get('risks', []))}</li>
-        <li><b>Recomendações:</b> {', '.join(profile.get('reco', []))}</li>
-      </ul>
-    </div>
+      <h1>Relatório de Personalidade – NeuroMap</h1>
+      <div class='card'>
+        <h2>Resumo</h2>
+        <p><span class='pill'>MBTI: <b>{scores.mbti_type}</b></span>
+           <span class='pill'>D: {disc.get('DISC_D',0)}%</span>
+           <span class='pill'>I: {disc.get('DISC_I',0)}%</span>
+           <span class='pill'>S: {disc.get('DISC_S',0)}%</span>
+           <span class='pill'>C: {disc.get('DISC_C',0)}%</span></p>
+      </div>
+      <div class='card'>
+        <h2>Big Five</h2>
+        <table>
+          <tr><th>Abertura (O)</th><td>{b5.get('B5_O',0)}%</td></tr>
+          <tr><th>Conscienciosidade (C)</th><td>{b5.get('B5_C',0)}%</td></tr>
+          <tr><th>Extroversão (E)</th><td>{b5.get('B5_E',0)}%</td></tr>
+          <tr><th>Amabilidade (A)</th><td>{b5.get('B5_A',0)}%</td></tr>
+          <tr><th>Estabilidade Emocional (−N)</th><td>{100 - b5.get('B5_N',0)}%</td></tr>
+        </table>
+      </div>
+      <div class='card'>
+        <h2>Interpretação</h2>
+        <p>{profile.get('summary','')}</p>
+        <ul>
+          <li><b>Pontos fortes:</b> {', '.join(profile.get('strengths', []))}</li>
+          <li><b>Pontos de atenção:</b> {', '.join(profile.get('risks', []))}</li>
+          <li><b>Recomendações:</b> {', '.join(profile.get('reco', []))}</li>
+        </ul>
+      </div>
     </body></html>
     """
-    return html
 
 
 def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
     styles = getSampleStyleSheet()
     story = []
-    story.append(Paragraph("<b>Relatório de Personalidade</b>", styles["Title"]))
+    story.append(Paragraph("<b>Relatório de Personalidade – NeuroMap</b>", styles["Title"]))
     story.append(Spacer(1, 12))
-
     disc = scores.disc; b5 = scores.b5
-
     story.append(Paragraph(f"<b>MBTI:</b> {scores.mbti_type}", styles["Heading2"]))
     story.append(Paragraph(
-        f"D: {disc.get('DISC_D',0)}% — I: {disc.get('DISC_I',0)}% — "
-        f"S: {disc.get('DISC_S',0)}% — C: {disc.get('DISC_C',0)}%",
+        f"D: {disc.get('DISC_D',0)}% — I: {disc.get('DISC_I',0)}% — S: {disc.get('DISC_S',0)}% — C: {disc.get('DISC_C',0)}%",
         styles["BodyText"]))
     story.append(Spacer(1, 8))
-
-    table_data = [
+    data = [
         ["Dimensão (Big Five)", "%"],
         ["Abertura", b5.get('B5_O',0)],
         ["Conscienciosidade", b5.get('B5_C',0)],
@@ -339,7 +374,7 @@ def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
         ["Amabilidade", b5.get('B5_A',0)],
         ["Estabilidade Emocional (−N)", 100 - b5.get('B5_N',0)],
     ]
-    tbl = Table(table_data, colWidths=[250, 120])
+    tbl = Table(data, colWidths=[250, 120])
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f2937")),
         ("TEXTCOLOR", (0,0), (-1,0), colors.whitesmoke),
@@ -349,19 +384,16 @@ def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
     ]))
     story.append(tbl)
     story.append(Spacer(1, 12))
-
     story.append(Paragraph("<b>Interpretação</b>", styles["Heading2"]))
     story.append(Paragraph(profile.get('summary',''), styles["BodyText"]))
-    story.append(Spacer(1, 8))
     story.append(Paragraph("<b>Pontos fortes:</b> " + ", ".join(profile.get('strengths', [])), styles["BodyText"]))
     story.append(Paragraph("<b>Pontos de atenção:</b> " + ", ".join(profile.get('risks', [])), styles["BodyText"]))
     story.append(Paragraph("<b>Recomendações:</b> " + ", ".join(profile.get('reco', [])), styles["BodyText"]))
-
     doc = SimpleDocTemplate(buf, pagesize=A4)
     doc.build(story)
 
 # =========================
-# 🧭 Perfis (texto automático baseado em scores)
+# 🧭 Perfil textual automático
 # =========================
 
 def synthesize_profile(scores: ScorePack) -> Dict:
@@ -370,25 +402,20 @@ def synthesize_profile(scores: ScorePack) -> Dict:
     I = scores.disc.get("DISC_I", 0)
     C = scores.disc.get("DISC_C", 0)
     b5 = scores.b5
-
-    strengths = []
-    risks = []
-    reco = []
-
+    strengths, risks, reco = [], [], []
     if D > 70:
         strengths.append("Liderança e decisão sob pressão")
         risks.append("Impaciência com lentidão/ambiguidade")
-        reco.append("Cultivar empatia situacional ao cobrar resultados")
+        reco.append("Praticar empatia situacional ao cobrar resultados")
     if S > 65:
         strengths.append("Consistência e autocontrole emocional")
-        reco.append("Equilibrar constância com abertura à experimentação")
+        reco.append("Equilibrar constância com experimentação")
     if C > 60:
         strengths.append("Qualidade, método e padrão elevado")
-        risks.append("Risco de rigidez ou microgestão")
-        reco.append("Definir critérios de 'bom o suficiente' para agilizar")
+        risks.append("Possível rigidez ou microgestão")
+        reco.append("Definir critérios de 'bom o suficiente'")
     if I > 55:
         strengths.append("Comunicação e influência objetivas")
-
     if b5.get("B5_O", 0) > 60:
         strengths.append("Curiosidade intelectual e visão de futuro")
     if b5.get("B5_C", 0) > 70:
@@ -398,149 +425,149 @@ def synthesize_profile(scores: ScorePack) -> Dict:
     if b5.get("B5_N", 0) > 55:
         risks.append("Tensão interna em cenários de alto risco")
         reco.append("Práticas de regulação emocional e delegação")
-
     summary = (
-        f"Perfil MBTI sugerido: {scores.mbti_type}. Combina orientação a resultados (D {int(D)}%) "
-        f"com constância (S {int(S)}%) e método (C {int(C)}%), equilibrados por comunicação objetiva (I {int(I)}%). "
-        "Nos traços Big Five, destaca-se conscienciosidade/organização e abertura a novas ideias."
+        f"MBTI sugerido: {scores.mbti_type}. Combina orientação a resultados (D {int(D)}%) com constância (S {int(S)}%) "
+        f"e método (C {int(C)}%), equilibrados por comunicação objetiva (I {int(I)}%). Big Five indica alta conscienciosidade."
     )
-
-    return {
-        "summary": summary,
-        "strengths": strengths or ["Foco e aprendizado"],
-        "risks": risks or ["Manter equilíbrio entre performance e bem-estar"],
-        "reco": reco or ["Ciclos de revisão e descanso planejados"],
-    }
+    return {"summary": summary, "strengths": strengths or ["Foco e aprendizado"],
+            "risks": risks or ["Equilíbrio entre performance e bem-estar"],
+            "reco": reco or ["Ciclos de revisão e descanso planejados"]}
 
 # =========================
-# 🖥️ UI — Streamlit
+# 🖥️ UI – Streamlit
 # =========================
-st.set_page_config(page_title="Avaliação de Personalidade", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="NeuroMap – Avaliação", page_icon="🧠", layout="wide")
 
-st.sidebar.title("🧠 Avaliação de Personalidade")
+st.sidebar.title("🧠 NeuroMap")
 mode = st.sidebar.radio("Navegação", ["Login / Cadastro", "Questionário", "Meu Relatório"], index=0)
 
-# --- Sessão de usuário ---
-if "user" not in st.session_state:
-    st.session_state.user = None
+if "uid" not in st.session_state:
+    st.session_state.uid = None
+if "idToken" not in st.session_state:
+    st.session_state.idToken = None
 if "answers" not in st.session_state:
-    st.session_state.answers: Dict[int, int] = {}
+    st.session_state.answers = {}
 
-# --- Funções de Auth ---
+# --- Auth UI ---
 
 def ui_auth():
-    st.subheader("Login ou Cadastro")
-    if not supabase:
-        st.warning("⚠️ Supabase não configurado. Defina SUPABASE_URL e SUPABASE_ANON_KEY.")
-    tab_login, tab_signup, tab_sql = st.tabs(["Entrar", "Cadastrar", "SQL (RLS)"])
-    with tab_login:
+    st.subheader("Login ou Cadastro (Firebase)")
+    tab_l, tab_s, tab_info = st.tabs(["Entrar", "Cadastrar", "Regras Firestore"])
+    with tab_l:
         email = st.text_input("Email")
         pwd = st.text_input("Senha", type="password")
-        if st.button("Entrar", use_container_width=True) and supabase:
+        if st.button("Entrar", use_container_width=True):
             try:
-                res = supabase.auth.sign_in_with_password({"email": email, "password": pwd})
-                st.session_state.user = res.user
-                st.success("Bem-vindo!")
+                data = fb_signin(email, pwd)
+                st.session_state.uid = data["localId"]
+                st.session_state.idToken = data["idToken"]
+                st.success("Bem-vindo ao NeuroMap!")
             except Exception as e:
                 st.error(f"Falha no login: {e}")
-    with tab_signup:
-        email_s = st.text_input("Email (cadastro)")
-        pwd_s = st.text_input("Senha (cadastro)", type="password")
-        if st.button("Criar conta", use_container_width=True) and supabase:
+    with tab_s:
+        email = st.text_input("Email (cadastro)")
+        pwd = st.text_input("Senha (cadastro)", type="password")
+        if st.button("Criar conta", use_container_width=True):
             try:
-                supabase.auth.sign_up({"email": email_s, "password": pwd_s})
-                st.success("Conta criada. Verifique seu email e depois faça login.")
+                fb_signup(email, pwd)
+                st.success("Conta criada. Verifique seu email e faça login.")
             except Exception as e:
-                st.error(f"Falha no cadastro: {e}")
-    with tab_sql:
-        st.code(SCHEMA_SQL, language="sql")
+                st.error(f"Erro no cadastro: {e}")
+    with tab_info:
+        st.code(
+            """rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/assessments/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}""",
+            language="firebase",
+        )
 
+
+# --- Questionnaire UI ---
 
 def ui_questionnaire():
     st.subheader("Questionário (48 itens)")
-    if not st.session_state.user:
-        st.info("Faça login para salvar suas respostas com segurança.")
-
-    cols = st.columns(2)
-    with cols[0]:
-        st.write("""**Escala:** 1 Discordo totalmente — 5 Concordo totalmente""")
-    with cols[1]:
-        if st.button("Zerar respostas", type="secondary"):
+    if not st.session_state.uid:
+        st.info("Faça login para vincular e salvar sua avaliação com segurança.")
+    c_top = st.columns(2)
+    with c_top[0]:
+        st.write("**Escala:** 1 Discordo totalmente — 5 Concordo totalmente")
+    with c_top[1]:
+        if st.button("Zerar respostas"):
             st.session_state.answers = {}
-
-    # Render
     for item in ITEMS:
         st.session_state.answers[item.id] = st.slider(
             f"{item.id}. {item.text}", 1, 5, int(st.session_state.answers.get(item.id, 3))
         )
-
     if st.button("🔒 Salvar e calcular meu perfil", use_container_width=True):
         scores = compute_scores(st.session_state.answers)
         profile = synthesize_profile(scores)
         st.session_state.scores = scores
         st.session_state.profile = profile
-
-        if supabase and st.session_state.user:
+        # Persistência se logado
+        if st.session_state.uid and st.session_state.idToken:
             try:
-                payload = {
-                    "user_id": st.session_state.user.id,
-                    "answers": json.dumps(st.session_state.answers),
-                    "scores": json.dumps({
+                fs_create_assessment(
+                    st.session_state.idToken,
+                    st.session_state.uid,
+                    st.session_state.answers,
+                    {
                         "disc": scores.disc,
                         "b5": scores.b5,
                         "mbti_axis": scores.mbti_axis,
                         "mbti_type": scores.mbti_type,
-                    }),
-                    "profile": json.dumps(profile),
-                }
-                supabase.table("assessments").insert(payload).execute()
-                st.success("Avaliação salva com sucesso.")
+                    },
+                    profile,
+                )
+                st.success("Avaliação salva no Firestore.")
             except Exception as e:
-                st.error(f"Erro ao salvar na base: {e}")
+                st.error(f"Erro ao salvar no Firestore: {e}")
         else:
-            st.warning("Supabase não configurado ou usuário não autenticado. Dados não persistidos.")
+            st.warning("Faça login para persistir sua avaliação.")
 
+
+# --- Report UI ---
 
 def ui_report():
     st.subheader("Meu Relatório")
-    if "scores" not in st.session_state:
-        # tentar carregar último do banco
-        if supabase and st.session_state.user:
-            try:
-                data = supabase.table("assessments").select("*").eq("user_id", st.session_state.user.id)\
-                    .order("created_at", desc=True).limit(1).execute()
-                if data.data:
-                    row = data.data[0]
-                    st.session_state.answers = json.loads(row["answers"]) if isinstance(row["answers"], str) else row["answers"]
-                    sc = row["scores"] if isinstance(row["scores"], dict) else json.loads(row["scores"])
-                    st.session_state.scores = ScorePack(
-                        disc=sc["disc"], b5=sc["b5"], mbti_axis=sc["mbti_axis"], mbti_type=sc["mbti_type"]
-                    )
-                    st.session_state.profile = row["profile"] if isinstance(row["profile"], dict) else json.loads(row["profile"])
-            except Exception as e:
-                st.error(f"Erro ao carregar último relatório: {e}")
+    # Carrega último do Firestore se não estiver na sessão
+    if "scores" not in st.session_state and st.session_state.uid and st.session_state.idToken:
+        try:
+            last = fs_get_latest_assessment(st.session_state.idToken, st.session_state.uid)
+            if last:
+                st.session_state.answers = last["answers"]
+                sc = last["scores"]
+                st.session_state.scores = ScorePack(
+                    disc=sc["disc"], b5=sc["b5"], mbti_axis=sc["mbti_axis"], mbti_type=sc["mbti_type"]
+                )
+                st.session_state.profile = last["profile"]
+        except Exception as e:
+            st.error(f"Erro ao carregar relatório: {e}")
 
     if "scores" not in st.session_state:
-        st.info("Você ainda não gerou um relatório. Vá até 'Questionário'.")
+        st.info("Você ainda não gerou um relatório. Vá em 'Questionário'.")
         return
 
     scores: ScorePack = st.session_state.scores
     profile: Dict = st.session_state.profile
-
     c1, c2 = st.columns(2)
     with c1:
         st.metric("MBTI", scores.mbti_type)
-        st.progress(int(scores.disc.get("DISC_D",0)), text=f"Dominância: {scores.disc.get('DISC_D',0)}%")
-        st.progress(int(scores.disc.get("DISC_I",0)), text=f"Influência: {scores.disc.get('DISC_I',0)}%")
-        st.progress(int(scores.disc.get("DISC_S",0)), text=f"Estabilidade: {scores.disc.get('DISC_S',0)}%")
-        st.progress(int(scores.disc.get("DISC_C",0)), text=f"Conformidade: {scores.disc.get('DISC_C',0)}%")
+        st.progress(int(scores.disc.get("DISC_D", 0)), text=f"Dominância: {scores.disc.get('DISC_D',0)}%")
+        st.progress(int(scores.disc.get("DISC_I", 0)), text=f"Influência: {scores.disc.get('DISC_I',0)}%")
+        st.progress(int(scores.disc.get("DISC_S", 0)), text=f"Estabilidade: {scores.disc.get('DISC_S',0)}%")
+        st.progress(int(scores.disc.get("DISC_C", 0)), text=f"Conformidade: {scores.disc.get('DISC_C',0)}%")
     with c2:
         st.write("### Big Five")
-        st.progress(int(scores.b5.get("B5_O",0)), text=f"Abertura: {scores.b5.get('B5_O',0)}%")
-        st.progress(int(scores.b5.get("B5_C",0)), text=f"Conscienciosidade: {scores.b5.get('B5_C',0)}%")
-        st.progress(int(scores.b5.get("B5_E",0)), text=f"Extroversão: {scores.b5.get('B5_E',0)}%")
-        st.progress(int(scores.b5.get("B5_A",0)), text=f"Amabilidade: {scores.b5.get('B5_A',0)}%")
-        st.progress(int(100 - scores.b5.get("B5_N",0)), text=f"Estabilidade emocional: {100 - scores.b5.get('B5_N',0)}%")
+        st.progress(int(scores.b5.get("B5_O", 0)), text=f"Abertura: {scores.b5.get('B5_O',0)}%")
+        st.progress(int(scores.b5.get("B5_C", 0)), text=f"Conscienciosidade: {scores.b5.get('B5_C',0)}%")
+        st.progress(int(scores.b5.get("B5_E", 0)), text=f"Extroversão: {scores.b5.get('B5_E',0)}%")
+        st.progress(int(scores.b5.get("B5_A", 0)), text=f"Amabilidade: {scores.b5.get('B5_A',0)}%")
+        st.progress(int(100 - scores.b5.get("B5_N", 0)), text=f"Estabilidade emocional: {100 - scores.b5.get('B5_N',0)}%")
 
     st.divider()
     st.write("### Interpretação")
@@ -551,14 +578,15 @@ def ui_report():
 
     # Downloads
     html_str = build_html_report(scores, profile, st.session_state.answers)
-    st.download_button("⬇️ Baixar HTML", data=html_str, file_name="relatorio_personalidade.html", mime="text/html")
+    st.download_button("⬇️ Baixar HTML", data=html_str, file_name="neuromap_relatorio.html", mime="text/html")
 
     buf = io.BytesIO()
     build_pdf_report(buf, scores, profile)
-    st.download_button("⬇️ Baixar PDF", data=buf.getvalue(), file_name="relatorio_personalidade.pdf", mime="application/pdf")
+    st.download_button("⬇️ Baixar PDF", data=buf.getvalue(), file_name="neuromap_relatorio.pdf", mime="application/pdf")
+
 
 # =========================
-# 🔁 Roteamento simples
+# 🔁 Router
 # =========================
 if mode == "Login / Cadastro":
     ui_auth()
