@@ -14,7 +14,7 @@ from typing import Dict, List
 import requests
 import streamlit as st
 from pydantic import BaseModel, Field
-from fpdf import FPDF  # <<< PDF agora com fpdf2, sem reportlab
+from fpdf import FPDF  # PDF com fpdf2
 
 # =========================
 # 🔧 Config & Secrets
@@ -22,7 +22,6 @@ from fpdf import FPDF  # <<< PDF agora com fpdf2, sem reportlab
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY") or st.secrets.get("FIREBASE_API_KEY", "")
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID") or st.secrets.get("FIREBASE_PROJECT_ID", "")
 
-# Aviso se secrets não estiverem configurados
 if not FIREBASE_API_KEY or not FIREBASE_PROJECT_ID:
     st.warning("⚠️ Configure FIREBASE_API_KEY e FIREBASE_PROJECT_ID nos secrets/env para salvar no Firestore.")
 
@@ -50,7 +49,10 @@ def fb_signin(email: str, password: str) -> Dict:
 # =========================
 # 📦 Firestore (REST) — users/{uid}/assessments/{doc}
 # =========================
-FS_BASE = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents"
+FS_BASE = (
+    f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}"
+    "/databases/(default)/documents"
+)
 
 
 def _fs_headers(id_token: str) -> Dict[str, str]:
@@ -61,7 +63,8 @@ def _fs_headers(id_token: str) -> Dict[str, str]:
 
 
 def fs_create_assessment(id_token: str, uid: str, answers: dict, scores: dict, profile: dict) -> Dict:
-    url = f"{FS_BASE}/users/{uid}/assessments?mask.fieldPaths="
+    # ❗ corrigido: sem ?mask.fieldPaths=
+    url = f"{FS_BASE}/users/{uid}/assessments"
     body = {
         "fields": {
             "answers": {"stringValue": json.dumps(answers, ensure_ascii=False)},
@@ -72,14 +75,17 @@ def fs_create_assessment(id_token: str, uid: str, answers: dict, scores: dict, p
         }
     }
     r = requests.post(url, headers=_fs_headers(id_token), json=body)
-    r.raise_for_status()
+    if not r.ok:
+        # ajuda a debugar caso ainda dê erro
+        raise Exception(f"Firestore create error {r.status_code}: {r.text}")
     return r.json()
 
 
 def fs_get_latest_assessment(id_token: str, uid: str):
     url = f"{FS_BASE}/users/{uid}/assessments?pageSize=1&orderBy=createTime desc"
     r = requests.get(url, headers=_fs_headers(id_token))
-    r.raise_for_status()
+    if not r.ok:
+        raise Exception(f"Firestore get error {r.status_code}: {r.text}")
     docs = r.json().get("documents", [])
     if not docs:
         return None
@@ -234,6 +240,7 @@ for block in [texts_block1, texts_block2, texts_block3, texts_block4]:
         ITEMS.append(Item(id=_id, text=t, weights=WEIGHTS[_id - 1]))
         _id += 1
 
+
 # =========================
 # 🔢 Scoring
 # =========================
@@ -293,8 +300,9 @@ def compute_scores(answers: Dict[int, int]) -> ScorePack:
     mbti_type = "".join([letter(k) for k in ["EI", "SN", "TF", "JP"]])
     return ScorePack(disc=disc_n, b5=b5_n, mbti_axis=axes, mbti_type=mbti_type)
 
+
 # =========================
-# 🧾 Relatórios (HTML / PDF)
+# 🧾 Relatórios (HTML / PDF com fpdf2)
 # =========================
 def build_html_report(scores: ScorePack, profile: Dict, answers: Dict[int, int]) -> str:
     disc = scores.disc
@@ -341,8 +349,8 @@ def build_html_report(scores: ScorePack, profile: Dict, answers: Dict[int, int])
     </body></html>
     """
 
+
 def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
-    # fpdf2 gera PDF em memória (ASCII/latin-1)
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
@@ -405,6 +413,7 @@ def build_pdf_report(buf: io.BytesIO, scores: ScorePack, profile: Dict):
     pdf_bytes = pdf.output(dest="S").encode("latin-1")
     buf.write(pdf_bytes)
 
+
 # =========================
 # 🧭 Perfil textual
 # =========================
@@ -454,6 +463,7 @@ def synthesize_profile(scores: ScorePack) -> Dict:
         "reco": reco or ["Ciclos de revisão e descanso planejados"],
     }
 
+
 # =========================
 # 🖥️ UI – Streamlit
 # =========================
@@ -468,6 +478,7 @@ if "idToken" not in st.session_state:
     st.session_state.idToken = None
 if "answers" not in st.session_state:
     st.session_state.answers = {}
+
 
 def ui_auth():
     st.subheader("Login ou Cadastro (Firebase)")
@@ -507,6 +518,7 @@ service cloud.firestore {
 }""",
             language="firebase",
         )
+
 
 def ui_questionnaire():
     st.subheader("Questionário (48 itens)")
@@ -550,6 +562,7 @@ def ui_questionnaire():
                 st.error(f"Erro ao salvar no Firestore: {e}")
         else:
             st.warning("Faça login para persistir sua avaliação.")
+
 
 def ui_report():
     st.subheader("Meu Relatório")
@@ -610,6 +623,7 @@ def ui_report():
         file_name="neuromap_relatorio.pdf",
         mime="application/pdf",
     )
+
 
 # =========================
 # 🔁 Router
