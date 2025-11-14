@@ -480,6 +480,14 @@ def synthesize_profile(scores: ScorePack) -> Dict:
 st.set_page_config(page_title="NeuroMap – Avaliacao", page_icon="🧠", layout="wide")
 
 st.sidebar.title("🧠 NeuroMap")
+# Botão de logout
+if st.sidebar.button("🚪 Sair do NeuroMap"):
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.session_state.uid = None
+    st.session_state.idToken = None
+    st.rerun()
+
 mode = st.sidebar.radio("Navegacao", ["Login / Cadastro", "Questionario", "Meu Relatorio"], index=0)
 
 if "uid" not in st.session_state:
