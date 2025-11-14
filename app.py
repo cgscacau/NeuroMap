@@ -63,9 +63,9 @@ def _fs_headers(id_token: str) -> Dict[str, str]:
 
 
 def fs_create_assessment(id_token: str, uid: str, answers: dict, scores: dict, profile: dict) -> Dict:
-    # 1) Salva no histórico (subcoleção)
-    url_hist = f"{FS_BASE}/users/{uid}/assessments"
-    body_hist = {
+    # salva apenas na subcolecao users/{uid}/assessments
+    url = f"{FS_BASE}/users/{uid}/assessments"
+    body = {
         "fields": {
             "answers": {"stringValue": json.dumps(answers, ensure_ascii=False)},
             "scores": {"stringValue": json.dumps(scores, ensure_ascii=False)},
@@ -74,25 +74,11 @@ def fs_create_assessment(id_token: str, uid: str, answers: dict, scores: dict, p
             "ts": {"timestampValue": dt.datetime.utcnow().isoformat() + "Z"},
         }
     }
-    r_hist = requests.post(url_hist, headers=_fs_headers(id_token), json=body_hist)
-    if not r_hist.ok:
-        raise Exception(f"Firestore create (hist) error {r_hist.status_code}: {r_hist.text}")
+    r = requests.post(url, headers=_fs_headers(id_token), json=body)
+    if not r.ok:
+        raise Exception(f"Firestore create error {r.status_code}: {r.text}")
+    return r.json()
 
-    # 2) Salva também um “snapshot” da última avaliação no próprio doc do usuário
-    url_latest = f"{FS_BASE}/users/{uid}"
-    body_latest = {
-        "fields": {
-            "last_answers": {"stringValue": json.dumps(answers, ensure_ascii=False)},
-            "last_scores": {"stringValue": json.dumps(scores, ensure_ascii=False)},
-            "last_profile": {"stringValue": json.dumps(profile, ensure_ascii=False)},
-            "last_ts": {"timestampValue": dt.datetime.utcnow().isoformat() + "Z"},
-        }
-    }
-    r_latest = requests.patch(url_latest, headers=_fs_headers(id_token), json=body_latest)
-    if not r_latest.ok:
-        raise Exception(f"Firestore create (latest) error {r_latest.status_code}: {r_latest.text}")
-
-    return r_hist.json()
 
 
 
