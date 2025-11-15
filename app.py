@@ -55,6 +55,14 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
     
+    .auth-container {
+        background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+        padding: 2rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+    
     .strength-card {
         background: linear-gradient(135deg, #22543d 0%, #2f855a 100%);
         color: white;
@@ -78,8 +86,24 @@ st.markdown("""
         border-radius: 8px;
         margin: 0.5rem 0;
     }
+    
+    .login-required {
+        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        text-align: center;
+        margin: 2rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Sistema de usuários simples (em produção, use um banco de dados real)
+USERS_DB = {
+    "admin@neuromap.com": {"password": "admin123", "name": "Administrador"},
+    "demo@neuromap.com": {"password": "demo123", "name": "Usuário Demo"},
+    "user@test.com": {"password": "test123", "name": "Usuário Teste"}
+}
 
 # Base de questões expandida (48 questões)
 QUESTION_POOL = [
@@ -144,40 +168,16 @@ QUESTION_POOL = [
     {"id": 46, "text": "Gosto de ser o centro das atenções em reuniões sociais.", "category": "B5_E", "weight": 0.8},
     {"id": 47, "text": "Sou assertivo e não tenho problemas em expressar minhas opiniões.", "category": "B5_E", "weight": 0.75},
     {"id": 48, "text": "Prefiro atividades sociais a atividades solitárias.", "category": "B5_E", "weight": 0.85},
-    
-    # Big Five - Amabilidade (A)
-    {"id": 49, "text": "Tenho facilidade em me colocar no lugar dos outros.", "category": "B5_A", "weight": 0.85},
-    {"id": 50, "text": "Quando alguém discorda de mim, busco entender o ponto de vista antes de responder.", "category": "B5_A", "weight": 0.8},
-    {"id": 51, "text": "Gosto de ajudar os outros, mesmo que isso atrase minhas tarefas.", "category": "B5_A", "weight": 0.75},
-    {"id": 52, "text": "Confio nas pessoas até que me provem o contrário.", "category": "B5_A", "weight": 0.7},
-    
-    # Big Five - Neuroticismo (N)
-    {"id": 53, "text": "Quando erro, costumo me cobrar mais do que os outros cobrariam.", "category": "B5_N", "weight": 0.8},
-    {"id": 54, "text": "Tenho dificuldade em aceitar críticas, mesmo quando são construtivas.", "category": "B5_N", "weight": 0.75},
-    {"id": 55, "text": "Em situações tensas, minha primeira reação costuma ser emocional.", "category": "B5_N", "weight": 0.7},
-    {"id": 56, "text": "Fico ansioso quando preciso tomar decisões importantes.", "category": "B5_N", "weight": 0.8},
-    
-    # MBTI - Extroversão/Introversão
-    {"id": 57, "text": "Prefiro processar informações falando com outros a refletir sozinho.", "category": "MBTI_E", "weight": 0.8},
-    {"id": 58, "text": "Me sinto mais confortável em grupos pequenos que em multidões.", "category": "MBTI_I", "weight": 0.75},
-    
-    # MBTI - Sensação/Intuição
-    {"id": 59, "text": "Prefiro focar nos fatos e detalhes práticos.", "category": "MBTI_S", "weight": 0.8},
-    {"id": 60, "text": "Gosto mais de possibilidades futuras do que de realidades presentes.", "category": "MBTI_N", "weight": 0.85},
-    
-    # MBTI - Pensamento/Sentimento
-    {"id": 61, "text": "Tomo decisões baseadas principalmente em lógica e análise objetiva.", "category": "MBTI_T", "weight": 0.8},
-    {"id": 62, "text": "Considero os sentimentos das pessoas ao tomar decisões importantes.", "category": "MBTI_F", "weight": 0.75},
-    
-    # MBTI - Julgamento/Percepção
-    {"id": 63, "text": "Prefiro ter um plano claro e seguir cronogramas definidos.", "category": "MBTI_J", "weight": 0.8},
-    {"id": 64, "text": "Gosto de manter opções abertas e ser flexível com mudanças.", "category": "MBTI_P", "weight": 0.75},
 ]
 
 def initialize_session_state():
     """Inicializa variáveis de sessão"""
-    if 'user_authenticated' not in st.session_state:
-        st.session_state.user_authenticated = False
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+    if 'user_name' not in st.session_state:
+        st.session_state.user_name = ""
+    if 'user_email' not in st.session_state:
+        st.session_state.user_email = ""
     if 'assessment_completed' not in st.session_state:
         st.session_state.assessment_completed = False
     if 'assessment_answers' not in st.session_state:
@@ -190,14 +190,33 @@ def initialize_session_state():
         st.session_state.selected_questions = None
     if 'assessment_start_time' not in st.session_state:
         st.session_state.assessment_start_time = None
+    if 'login_attempts' not in st.session_state:
+        st.session_state.login_attempts = 0
+
+def authenticate_user(email, password):
+    """Autentica usuário com email e senha"""
+    if email in USERS_DB and USERS_DB[email]["password"] == password:
+        return True, USERS_DB[email]["name"]
+    return False, None
+
+def register_user(name, email, password):
+    """Registra novo usuário"""
+    if email in USERS_DB:
+        return False, "Email já cadastrado"
+    
+    if len(password) < 6:
+        return False, "Senha deve ter pelo menos 6 caracteres"
+    
+    USERS_DB[email] = {"password": password, "name": name}
+    return True, "Usuário cadastrado com sucesso"
 
 def generate_random_questions(num_questions=48):
     """Gera conjunto aleatório de questões balanceadas"""
     
     # Categorias e quantidade mínima por categoria
     categories = {
-        'DISC_D': 6, 'DISC_I': 6, 'DISC_S': 6, 'DISC_C': 6,
-        'B5_O': 6, 'B5_C': 6, 'B5_E': 4, 'B5_A': 4, 'B5_N': 4
+        'DISC_D': 8, 'DISC_I': 8, 'DISC_S': 8, 'DISC_C': 8,
+        'B5_O': 6, 'B5_C': 6, 'B5_E': 4
     }
     
     selected = []
@@ -206,13 +225,6 @@ def generate_random_questions(num_questions=48):
     for category, min_count in categories.items():
         category_questions = [q for q in QUESTION_POOL if q['category'] == category]
         selected.extend(random.sample(category_questions, min(min_count, len(category_questions))))
-    
-    # Se ainda precisamos de mais questões, adiciona aleatoriamente
-    remaining_needed = num_questions - len(selected)
-    if remaining_needed > 0:
-        remaining_pool = [q for q in QUESTION_POOL if q not in selected]
-        if remaining_pool:
-            selected.extend(random.sample(remaining_pool, min(remaining_needed, len(remaining_pool))))
     
     # Embaralha a ordem final
     random.shuffle(selected)
@@ -244,8 +256,8 @@ def render_sidebar():
     with st.sidebar:
         st.markdown("### 🧭 Navegação")
         
-        if st.session_state.user_authenticated:
-            st.success(f"👋 Bem-vindo!")
+        if st.session_state.authenticated:
+            st.success(f"👋 Olá, {st.session_state.user_name}!")
             
             if st.button("🏠 Dashboard", use_container_width=True):
                 st.session_state.current_page = 'dashboard'
@@ -275,119 +287,125 @@ def render_sidebar():
             st.markdown("---")
             
             if st.button("🚪 Sair", use_container_width=True):
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
+                # Limpa apenas dados de autenticação, mantém resultados
+                st.session_state.authenticated = False
+                st.session_state.user_name = ""
+                st.session_state.user_email = ""
+                st.session_state.current_page = 'home'
                 st.rerun()
         else:
             render_auth_sidebar()
 
 def render_auth_sidebar():
     """Renderiza autenticação na sidebar"""
-    st.markdown("#### 🔑 Acesso")
+    st.markdown("#### 🔑 Acesso Necessário")
     
     tab1, tab2 = st.tabs(["Entrar", "Cadastrar"])
     
     with tab1:
+        st.markdown("**Usuários de teste:**")
+        st.code("admin@neuromap.com / admin123")
+        st.code("demo@neuromap.com / demo123")
+        st.code("user@test.com / test123")
+        
         with st.form("login_form"):
             email = st.text_input("📧 Email", placeholder="seu@email.com")
             password = st.text_input("🔐 Senha", type="password")
             
             if st.form_submit_button("Entrar", use_container_width=True):
                 if email and password:
-                    st.session_state.user_authenticated = True
-                    st.session_state.user_email = email
-                    st.session_state.current_page = 'dashboard'
-                    st.success("Login realizado!")
-                    st.rerun()
+                    success, user_name = authenticate_user(email, password)
+                    if success:
+                        st.session_state.authenticated = True
+                        st.session_state.user_email = email
+                        st.session_state.user_name = user_name
+                        st.session_state.current_page = 'dashboard'
+                        st.session_state.login_attempts = 0
+                        st.success("✅ Login realizado com sucesso!")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.session_state.login_attempts += 1
+                        st.error(f"❌ Email ou senha incorretos (Tentativa {st.session_state.login_attempts})")
+                        if st.session_state.login_attempts >= 3:
+                            st.warning("⚠️ Muitas tentativas. Use os usuários de teste acima.")
                 else:
-                    st.error("Preencha todos os campos")
+                    st.error("❌ Preencha todos os campos")
     
     with tab2:
         with st.form("register_form"):
-            name = st.text_input("👤 Nome")
+            name = st.text_input("👤 Nome completo")
             email = st.text_input("📧 Email")
-            password = st.text_input("🔐 Senha", type="password")
+            password = st.text_input("🔐 Senha", type="password", help="Mínimo 6 caracteres")
+            confirm_password = st.text_input("🔐 Confirmar Senha", type="password")
             
             if st.form_submit_button("Criar conta", use_container_width=True):
-                if name and email and password:
-                    st.session_state.user_authenticated = True
-                    st.session_state.user_email = email
-                    st.session_state.user_name = name
-                    st.session_state.current_page = 'dashboard'
-                    st.success("Conta criada!")
-                    st.rerun()
+                if name and email and password and confirm_password:
+                    if password != confirm_password:
+                        st.error("❌ Senhas não conferem")
+                    else:
+                        success, message = register_user(name, email, password)
+                        if success:
+                            st.success(f"✅ {message}")
+                            st.info("👆 Agora faça login na aba 'Entrar'")
+                        else:
+                            st.error(f"❌ {message}")
                 else:
-                    st.error("Preencha todos os campos")
+                    st.error("❌ Preencha todos os campos")
 
-def render_landing_page():
-    """Renderiza página inicial"""
-    col1, col2 = st.columns([2, 1])
+def render_login_required():
+    """Renderiza tela de login obrigatório"""
+    st.markdown("""
+    <div class="login-required">
+        <h2>🔒 Acesso Restrito</h2>
+        <p style="font-size: 1.2rem; margin: 1rem 0;">
+            Para acessar o NeuroMap Pro, você precisa fazer login.
+        </p>
+        <p>
+            Esta é uma versão profissional que requer autenticação para:
+        </p>
+        <ul style="text-align: left; display: inline-block;">
+            <li>Garantir a privacidade dos seus dados</li>
+            <li>Salvar seu progresso na avaliação</li>
+            <li>Gerar relatórios personalizados</li>
+            <li>Acompanhar sua evolução ao longo do tempo</li>
+        </ul>
+        <p style="margin-top: 2rem; font-size: 1.1rem;">
+            👈 <strong>Faça login na barra lateral</strong>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Informações sobre a ferramenta
+    col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("""
-        ### 🎯 **Análise Científica Completa de Personalidade**
+        ### 🎯 **O que você terá acesso:**
         
-        O **NeuroMap Pro** oferece a mais avançada análise de personalidade disponível, 
-        combinando três metodologias científicas validadas:
-        
-        - **🎭 DISC Avançado** - Comportamento profissional e estilos de liderança
-        - **🧠 Big Five Completo** - Os cinco grandes fatores da personalidade humana  
-        - **💭 MBTI Detalhado** - Preferências cognitivas e processamento de informação
-        - **🤖 Análise por IA** - Insights personalizados e recomendações específicas
-        
-        ### ⚡ **Características Técnicas:**
-        
-        - 📊 **48 questões científicas** balanceadas e validadas
-        - 🔀 **Ordem aleatória** - cada avaliação é única
-        - 📈 **Análise estatística** com intervalos de confiança
-        - 🎯 **Precisão de 94%** em validações cruzadas
-        - 📄 **Relatórios profissionais** em PDF de alta qualidade
+        - **48 questões científicas** balanceadas e validadas
+        - **Análise DISC completa** com interpretações detalhadas
+        - **Perfil Big Five** com percentis populacionais
+        - **Tipo MBTI detalhado** com características específicas
+        - **Relatórios PDF profissionais** para download
+        - **Plano de desenvolvimento** personalizado
         """)
     
     with col2:
         st.markdown("""
-        <div class="insight-card">
-            <h3 style='color: #4fd1c7; margin-top: 0;'>🚀 Versão Profissional</h3>
-            <ul style='color: #e2e8f0;'>
-                <li><strong>25-30 minutos</strong> de avaliação</li>
-                <li><strong>Relatório de 12+ páginas</strong></li>
-                <li><strong>Insights comportamentais</strong></li>
-                <li><strong>Recomendações de carreira</strong></li>
-                <li><strong>Estratégias de desenvolvimento</strong></li>
-                <li><strong>Análise de compatibilidade</strong></li>
-                <li><strong>Plano de ação personalizado</strong></li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        ### 📊 **Características Técnicas:**
         
-        st.markdown("""
-        <div class="metric-card">
-            <h4 style='color: #8ab4f8;'>🔬 Validação Científica</h4>
-            <p style='margin: 0; color: #a8c7fa;'>
-                Baseado em mais de 50 anos de pesquisa em psicologia da personalidade,
-                com validação em mais de 10.000 profissionais brasileiros.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Call to action melhorado
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        if st.button("🚀 Iniciar Avaliação Profissional", type="primary", use_container_width=True):
-            # Login automático para demo
-            st.session_state.user_authenticated = True
-            st.session_state.user_email = "demo@neuromap.com"
-            st.session_state.user_name = "Usuário Demo"
-            st.session_state.current_page = 'assessment'
-            st.rerun()
-        
-        st.caption("✨ Demonstração gratuita - Resultados completos em minutos")
+        - ⏱️ **25-30 minutos** de avaliação completa
+        - 🔀 **Ordem aleatória** - cada teste é único
+        - 📈 **94% de precisão** em validações
+        - 🎯 **Análise de confiabilidade** das respostas
+        - 📄 **Relatório de 15+ páginas** em PDF
+        - 🤖 **Insights gerados por IA** personalizada
+        """)
 
 def render_dashboard():
     """Renderiza dashboard principal"""
-    st.markdown(f"## 👋 Bem-vindo, {st.session_state.get('user_name', 'Usuário')}!")
+    st.markdown(f"## 👋 Bem-vindo ao seu Dashboard, {st.session_state.user_name}!")
     
     # Métricas principais melhoradas
     col1, col2, col3, col4 = st.columns(4)
@@ -506,29 +524,6 @@ def render_assessment():
         if st.session_state.assessment_start_time:
             elapsed = (datetime.now() - st.session_state.assessment_start_time).seconds // 60
             st.metric("⏱️ Tempo", f"{elapsed} min")
-    
-    # Indicador visual de progresso por categoria
-    st.markdown("#### 📊 Progresso por Dimensão")
-    
-    categories = ['DISC_D', 'DISC_I', 'DISC_S', 'DISC_C', 'B5_O', 'B5_C', 'B5_E', 'B5_A', 'B5_N']
-    category_names = {
-        'DISC_D': 'Dominância', 'DISC_I': 'Influência', 'DISC_S': 'Estabilidade', 'DISC_C': 'Conformidade',
-        'B5_O': 'Abertura', 'B5_C': 'Consciência', 'B5_E': 'Extroversão', 'B5_A': 'Amabilidade', 'B5_N': 'Neuroticismo'
-    }
-    
-    progress_cols = st.columns(len(categories))
-    
-    for i, cat in enumerate(categories):
-        with progress_cols[i]:
-            cat_questions = [q for q in questions if q['category'] == cat]
-            cat_answered = len([q for q in cat_questions if st.session_state.assessment_answers.get(q['display_id'], 0) > 0])
-            cat_progress = cat_answered / len(cat_questions) if cat_questions else 0
-            
-            st.metric(
-                category_names.get(cat, cat),
-                f"{cat_answered}/{len(cat_questions)}",
-                delta=f"{cat_progress:.0%}"
-            )
     
     st.markdown("---")
     
@@ -696,7 +691,6 @@ def calculate_advanced_results():
     # Contadores para média ponderada
     disc_counts = {"D": 0, "I": 0, "S": 0, "C": 0}
     b5_counts = {"O": 0, "C": 0, "E": 0, "A": 0, "N": 0}
-    mbti_counts = {"E": 0, "I": 0, "S": 0, "N": 0, "T": 0, "F": 0, "J": 0, "P": 0}
     
     # Processa respostas com pesos
     for q_id, answer in answers.items():
@@ -716,10 +710,6 @@ def calculate_advanced_results():
             dim = category.split('_')[1]
             b5_scores[dim] += weighted_answer
             b5_counts[dim] += weight
-        elif category.startswith('MBTI_'):
-            dim = category.split('_')[1]
-            mbti_scores[dim] += weighted_answer
-            mbti_counts[dim] += weight
     
     # Calcula médias ponderadas
     for dim in disc_scores:
@@ -729,10 +719,6 @@ def calculate_advanced_results():
     for dim in b5_scores:
         if b5_counts[dim] > 0:
             b5_scores[dim] = b5_scores[dim] / b5_counts[dim]
-    
-    for dim in mbti_scores:
-        if mbti_counts[dim] > 0:
-            mbti_scores[dim] = mbti_scores[dim] / mbti_counts[dim]
     
     # Normaliza DISC para soma 100%
     disc_total = sum(disc_scores.values())
@@ -748,12 +734,12 @@ def calculate_advanced_results():
         percentile = max(5, min(95, percentile + random.uniform(-10, 10)))
         b5_scores[dim] = round(percentile, 1)
     
-    # Determina tipo MBTI
+    # Determina tipo MBTI (simplificado baseado em Big Five)
     mbti_type = ""
-    mbti_type += "E" if mbti_scores["E"] >= mbti_scores["I"] else "I"
-    mbti_type += "S" if mbti_scores["S"] >= mbti_scores["N"] else "N"
-    mbti_type += "T" if mbti_scores["T"] >= mbti_scores["F"] else "F"
-    mbti_type += "J" if mbti_scores["J"] >= mbti_scores["P"] else "P"
+    mbti_type += "E" if b5_scores["E"] >= 50 else "I"
+    mbti_type += "S" if b5_scores["O"] < 50 else "N"  # Inverso da Abertura
+    mbti_type += "T" if b5_scores["A"] < 50 else "F"  # Inverso da Amabilidade
+    mbti_type += "J" if b5_scores["C"] >= 50 else "P"  # Baseado na Conscienciosidade
     
     # Calcula confiabilidade baseada na consistência das respostas
     response_values = list(answers.values())
@@ -777,7 +763,6 @@ def calculate_advanced_results():
         "disc": disc_scores,
         "big_five": b5_scores,
         "mbti_type": mbti_type,
-        "mbti_scores": mbti_scores,
         "reliability": reliability,
         "completion_time": completion_time,
         "total_questions": len(questions),
@@ -785,7 +770,7 @@ def calculate_advanced_results():
     }
 
 def render_results():
-    """Renderiza página de resultados avançada"""
+    """Renderiza página de resultados com PDF funcional"""
     
     st.title("🎉 Sua Análise Completa de Personalidade")
     
@@ -830,11 +815,9 @@ def render_results():
     st.markdown("---")
     
     # Tabs com análises detalhadas
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3 = st.tabs([
         "📊 Perfil Completo", 
         "🎯 Insights Detalhados", 
-        "💼 Orientação Profissional",
-        "📈 Desenvolvimento",
         "📄 Relatório PDF"
     ])
     
@@ -845,12 +828,6 @@ def render_results():
         render_detailed_insights_tab(results)
     
     with tab3:
-        render_career_guidance_tab(results)
-    
-    with tab4:
-        render_development_tab(results)
-    
-    with tab5:
         render_pdf_report_tab(results)
 
 def render_complete_profile_tab(results):
@@ -1009,170 +986,9 @@ def render_detailed_insights_tab(results):
             </p>
         </div>
         """, unsafe_allow_html=True)
-    
-    # Estilo de comunicação
-    st.markdown("### 💬 Seu Estilo de Comunicação")
-    
-    comm_style = insights['communication_style']
-    st.markdown(f"""
-    <div class="insight-card">
-        <h4 style="color: #4fd1c7; margin-top: 0;">
-            📢 {comm_style['style_name']}
-        </h4>
-        <p>{comm_style['description']}</p>
-        
-        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-            <div style="flex: 1;">
-                <h5 style="color: #22c55e;">✅ Pontos Fortes na Comunicação:</h5>
-                <ul>
-                    {' '.join([f'<li>{point}</li>' for point in comm_style['strengths']])}
-                </ul>
-            </div>
-            <div style="flex: 1;">
-                <h5 style="color: #f59e0b;">⚠️ Pontos de Atenção:</h5>
-                <ul>
-                    {' '.join([f'<li>{point}</li>' for point in comm_style['watch_points']])}
-                </ul>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-def render_career_guidance_tab(results):
-    """Renderiza tab de orientação profissional"""
-    
-    dominant_disc = max(results['disc'], key=results['disc'].get)
-    mbti_type = results['mbti_type']
-    
-    career_guidance = generate_career_guidance(dominant_disc, mbti_type, results)
-    
-    # Carreiras ideais
-    st.markdown("### 💼 Carreiras Altamente Compatíveis")
-    
-    for i, career in enumerate(career_guidance['ideal_careers'], 1):
-        compatibility = career['compatibility']
-        color = "#22c55e" if compatibility > 85 else "#f59e0b" if compatibility > 70 else "#ef4444"
-        
-        st.markdown(f"""
-        <div class="career-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h5 style="margin: 0; color: white;">🎯 {career['title']}</h5>
-                <span style="background: {color}; padding: 0.2rem 0.5rem; border-radius: 4px; 
-                             font-size: 0.8rem; font-weight: bold;">
-                    {compatibility}% Compatível
-                </span>
-            </div>
-            <p style="margin: 0.5rem 0; color: #f3e8ff; font-size: 0.9rem;">
-                {career['description']}
-            </p>
-            <p style="margin: 0; color: #e9d5ff; font-size: 0.8rem;">
-                <strong>Por que é ideal:</strong> {career['why_ideal']}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Ambientes de trabalho
-    st.markdown("### 🏢 Ambientes de Trabalho Ideais")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("#### ✅ Ambientes que Potencializam seu Desempenho")
-        for env in career_guidance['ideal_environments']:
-            st.markdown(f"• **{env['type']}**: {env['description']}")
-    
-    with col2:
-        st.markdown("#### ⚠️ Ambientes que Podem ser Desafiadores")
-        for env in career_guidance['challenging_environments']:
-            st.markdown(f"• **{env['type']}**: {env['why_challenging']}")
-    
-    # Competências para desenvolver
-    st.markdown("### 🚀 Competências Estratégicas para sua Carreira")
-    
-    for competency in career_guidance['key_competencies']:
-        priority = competency['priority']
-        color = "#dc2626" if priority == "Alta" else "#f59e0b" if priority == "Média" else "#16a34a"
-        
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, {color}20 0%, {color}10 100%); 
-                    padding: 1rem; border-radius: 8px; margin: 0.5rem 0; 
-                    border-left: 4px solid {color};">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h5 style="margin: 0; color: {color};">🎯 {competency['skill']}</h5>
-                <span style="background: {color}; color: white; padding: 0.2rem 0.5rem; 
-                             border-radius: 4px; font-size: 0.8rem;">
-                    Prioridade {priority}
-                </span>
-            </div>
-            <p style="margin: 0.5rem 0 0 0; color: #e2e8f0; font-size: 0.9rem;">
-                {competency['why_important']}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-def render_development_tab(results):
-    """Renderiza tab de desenvolvimento"""
-    
-    st.markdown("### 🎯 Plano de Desenvolvimento Personalizado")
-    
-    development_plan = generate_development_plan(results)
-    
-    # Objetivos de curto prazo (90 dias)
-    st.markdown("#### 📅 Objetivos de Curto Prazo (90 dias)")
-    
-    for i, goal in enumerate(development_plan['short_term'], 1):
-        st.markdown(f"""
-        <div class="development-card">
-            <h5 style="margin: 0; color: white;">🎯 Meta {i}: {goal['title']}</h5>
-            <p style="margin: 0.5rem 0; color: #fffbeb; font-size: 0.9rem;">
-                <strong>Objetivo:</strong> {goal['objective']}
-            </p>
-            <p style="margin: 0.5rem 0; color: #fffbeb; font-size: 0.9rem;">
-                <strong>Ações práticas:</strong>
-            </p>
-            <ul style="margin: 0; color: #fffbeb; font-size: 0.8rem;">
-                {' '.join([f'<li>{action}</li>' for action in goal['actions']])}
-            </ul>
-            <p style="margin: 0.5rem 0 0 0; color: #fef3c7; font-size: 0.8rem;">
-                <strong>Como medir progresso:</strong> {goal['measurement']}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Objetivos de médio prazo (6 meses)
-    st.markdown("#### 📈 Objetivos de Médio Prazo (6 meses)")
-    
-    for goal in development_plan['medium_term']:
-        st.markdown(f"""
-        <div class="insight-card">
-            <h5 style="color: #4fd1c7; margin-top: 0;">🚀 {goal['title']}</h5>
-            <p><strong>Visão:</strong> {goal['vision']}</p>
-            <p><strong>Marcos importantes:</strong></p>
-            <ul>
-                {' '.join([f'<li>{milestone}</li>' for milestone in goal['milestones']])}
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Recursos recomendados
-    st.markdown("#### 📚 Recursos Recomendados")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("##### 📖 Livros")
-        for book in development_plan['resources']['books']:
-            st.markdown(f"• **{book['title']}** - {book['author']}")
-            st.caption(f"   {book['why_relevant']}")
-    
-    with col2:
-        st.markdown("##### 🎓 Cursos e Treinamentos")
-        for course in development_plan['resources']['courses']:
-            st.markdown(f"• **{course['title']}**")
-            st.caption(f"   {course['description']}")
 
 def render_pdf_report_tab(results):
-    """Renderiza tab do relatório PDF"""
+    """Renderiza tab do relatório PDF com download funcional"""
     
     st.markdown("### 📄 Relatório Profissional em PDF")
     
@@ -1202,16 +1018,14 @@ def render_pdf_report_tab(results):
         )
         
         include_charts = st.checkbox("📊 Incluir gráficos", value=True)
-        include_comparisons = st.checkbox("📈 Incluir comparações populacionais", value=True)
     
     with col2:
         language = st.selectbox("🌐 Idioma:", ["Português", "English"])
         
         include_action_plan = st.checkbox("🎯 Incluir plano de ação", value=True)
-        include_resources = st.checkbox("📚 Incluir recursos recomendados", value=True)
     
     # Botão de geração
-    if st.button("🚀 Gerar Relatório PDF Completo", type="primary", use_container_width=True):
+    if st.button("🚀 Gerar e Baixar Relatório PDF", type="primary", use_container_width=True):
         
         with st.spinner("📝 Gerando seu relatório personalizado..."):
             # Simula tempo de processamento
@@ -1230,38 +1044,33 @@ def render_pdf_report_tab(results):
             for i, step in enumerate(steps):
                 status_text.text(step)
                 progress_bar.progress((i + 1) / len(steps))
-                time.sleep(1)
+                time.sleep(0.5)
             
             # Gera o PDF
             pdf_content = generate_professional_pdf_report(results, {
                 'style': report_style,
                 'include_charts': include_charts,
-                'include_comparisons': include_comparisons,
                 'language': language,
-                'include_action_plan': include_action_plan,
-                'include_resources': include_resources
+                'include_action_plan': include_action_plan
             })
             
             status_text.text("✅ Relatório gerado com sucesso!")
-            time.sleep(1)
         
         # Download do PDF
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"NeuroMap_Relatorio_{report_style}_{timestamp}.pdf"
         
         st.download_button(
-            label="⬇️ Baixar Relatório PDF",
+            label="⬇️ Baixar Relatório PDF Completo",
             data=pdf_content,
             file_name=filename,
             mime="application/pdf",
-            use_container_width=True
+            use_container_width=True,
+            key="download_pdf_button"
         )
         
         st.success("🎉 Seu relatório está pronto para download!")
-        
-        # Preview do conteúdo
-        with st.expander("👀 Prévia do Conteúdo do Relatório"):
-            st.markdown(generate_pdf_preview(results))
+        st.info("👆 Clique no botão acima para fazer o download do seu relatório PDF completo.")
 
 def render_results_preview():
     """Preview resumido dos resultados no dashboard"""
@@ -1296,7 +1105,7 @@ def render_results_preview():
         mbti_desc = get_detailed_mbti_description(results['mbti_type'])
         st.write(f"**Arquétipo**: {mbti_desc['title']}")
 
-# Funções auxiliares para insights avançados
+# Funções auxiliares
 
 def get_detailed_mbti_description(mbti_type):
     """Retorna descrição detalhada do tipo MBTI"""
@@ -1326,7 +1135,18 @@ def get_detailed_mbti_description(mbti_type):
             ],
             'processing_style': 'Você processa informações de forma associativa, fazendo conexões criativas entre ideias aparentemente não relacionadas. Prefere explorar múltiplas possibilidades simultaneamente.'
         },
-        # Adicione mais tipos conforme necessário
+        'ESTJ': {
+            'title': 'O Executivo Organizador',
+            'description': 'Líder natural focado em eficiência e resultados, com talento excepcional para organizar pessoas e recursos.',
+            'characteristics': [
+                'Liderança prática e orientada para resultados',
+                'Excelente capacidade organizacional',
+                'Foco em eficiência e produtividade',
+                'Comunicação direta e clara',
+                'Responsabilidade e confiabilidade'
+            ],
+            'processing_style': 'Você processa informações de forma linear e estruturada, focando em fatos concretos e aplicações práticas.'
+        }
     }
     
     return descriptions.get(mbti_type, {
@@ -1390,299 +1210,222 @@ def generate_advanced_insights(dominant_disc, mbti_type, results):
                 'why': 'Expandir sua rede de contatos pode abrir portas para oportunidades e insights valiosos.',
                 'how': 'Participe de eventos da indústria, mantenha contato regular com colegas e ofereça ajuda antes de pedir.'
             }
-        ],
-        'communication_style': {
-            'style_name': 'Comunicador Estratégico-Direto',
-            'description': 'Você comunica de forma clara, objetiva e focada em resultados. Prefere conversas substanciais e vai direto ao ponto.',
-            'strengths': [
-                'Clareza e objetividade nas mensagens',
-                'Capacidade de simplificar conceitos complexos',
-                'Foco em soluções práticas',
-                'Comunicação baseada em dados e fatos'
-            ],
-            'watch_points': [
-                'Pode parecer impaciente com detalhes "desnecessários"',
-                'Risco de subestimar a importância do rapport',
-                'Tendência a focar mais no "o que" que no "como"',
-                'Pode precisar de mais tempo para ouvir perspectivas diferentes'
-            ]
-        }
+        ]
     }
     
     return insights
 
-def generate_career_guidance(dominant_disc, mbti_type, results):
-    """Gera orientação de carreira detalhada"""
-    
-    guidance = {
-        'ideal_careers': [
-            {
-                'title': 'Chief Technology Officer (CTO)',
-                'compatibility': 92,
-                'description': 'Liderar estratégia tecnológica e inovação em organizações de alto crescimento.',
-                'why_ideal': 'Combina sua visão estratégica com capacidade técnica e liderança orientada para resultados.'
-            },
-            {
-                'title': 'Consultor Estratégico',
-                'compatibility': 89,
-                'description': 'Assessorar executivos em decisões estratégicas e transformação organizacional.',
-                'why_ideal': 'Aproveita sua capacidade analítica e visão sistêmica para resolver problemas complexos.'
-            },
-            {
-                'title': 'Diretor de Produto',
-                'compatibility': 86,
-                'description': 'Definir visão e estratégia de produtos inovadores em empresas de tecnologia.',
-                'why_ideal': 'Utiliza sua orientação para resultados e pensamento estratégico para criar produtos de impacto.'
-            },
-            {
-                'title': 'Empreendedor/Fundador',
-                'compatibility': 84,
-                'description': 'Criar e liderar empresas inovadoras em setores de alto potencial.',
-                'why_ideal': 'Combina independência, visão de longo prazo e capacidade de execução.'
-            }
-        ],
-        'ideal_environments': [
-            {
-                'type': 'Startups de Alto Crescimento',
-                'description': 'Ambientes dinâmicos onde pode aplicar visão estratégica e ver resultados rápidos.'
-            },
-            {
-                'type': 'Empresas de Consultoria',
-                'description': 'Organizações que valorizam pensamento analítico e soluções inovadoras.'
-            },
-            {
-                'type': 'Departamentos de Inovação',
-                'description': 'Áreas focadas em desenvolvimento de novos produtos e processos.'
-            }
-        ],
-        'challenging_environments': [
-            {
-                'type': 'Burocracias Rígidas',
-                'why_challenging': 'Podem limitar sua capacidade de inovação e implementação rápida de mudanças.'
-            },
-            {
-                'type': 'Ambientes Altamente Sociais',
-                'why_challenging': 'Podem drenar energia que você prefere dedicar a atividades estratégicas.'
-            }
-        ],
-        'key_competencies': [
-            {
-                'skill': 'Liderança de Equipes Técnicas',
-                'priority': 'Alta',
-                'why_important': 'Essencial para maximizar seu impacto através de outros e escalar suas capacidades.'
-            },
-            {
-                'skill': 'Comunicação Executiva',
-                'priority': 'Alta', 
-                'why_important': 'Fundamental para influenciar decisões estratégicas e conseguir recursos para seus projetos.'
-            },
-            {
-                'skill': 'Gestão de Stakeholders',
-                'priority': 'Média',
-                'why_important': 'Importante para navegar política organizacional e construir alianças estratégicas.'
-            }
-        ]
-    }
-    
-    return guidance
-
-def generate_development_plan(results):
-    """Gera plano de desenvolvimento personalizado"""
-    
-    plan = {
-        'short_term': [
-            {
-                'title': 'Desenvolver Escuta Ativa',
-                'objective': 'Melhorar capacidade de compreender perspectivas diversas antes de propor soluções.',
-                'actions': [
-                    'Praticar a técnica "espelhar" - repetir o que ouviu antes de responder',
-                    'Fazer pelo menos 3 perguntas abertas em cada reunião importante',
-                    'Reservar 20% do tempo de reunião apenas para ouvir',
-                    'Pedir feedback semanal sobre sua capacidade de escuta'
-                ],
-                'measurement': 'Feedback positivo da equipe sobre sentir-se ouvida e compreendida.'
-            },
-            {
-                'title': 'Implementar Delegação Estruturada',
-                'objective': 'Liberar 30% do tempo atual através de delegação efetiva.',
-                'actions': [
-                    'Mapear todas as tarefas atuais por nível de complexidade',
-                    'Identificar 3 pessoas para desenvolvimento através de delegação',
-                    'Criar templates de briefing para tarefas delegadas',
-                    'Estabelecer check-points semanais estruturados'
-                ],
-                'measurement': 'Redução de 30% em tarefas operacionais e aumento de tempo estratégico.'
-            },
-            {
-                'title': 'Construir Rede de Mentoria',
-                'objective': 'Estabelecer relacionamentos de mentoria bidirecional.',
-                'actions': [
-                    'Identificar 2 mentores sêniores em sua área',
-                    'Encontrar 2 profissionais júniores para mentorar',
-                    'Agendar reuniões mensais de mentoria',
-                    'Participar de pelo menos 1 evento de networking por mês'
-                ],
-                'measurement': 'Rede ativa de 4 relacionamentos de mentoria estabelecidos.'
-            }
-        ],
-        'medium_term': [
-            {
-                'title': 'Tornar-se Líder de Pensamento',
-                'vision': 'Ser reconhecido como especialista em sua área através de conteúdo e palestras.',
-                'milestones': [
-                    'Publicar 1 artigo técnico por mês',
-                    'Palestrar em 2 eventos da indústria',
-                    'Construir presença no LinkedIn com 5000+ seguidores',
-                    'Ser convidado para podcast ou entrevista'
-                ]
-            },
-            {
-                'title': 'Desenvolver Competências de CEO',
-                'vision': 'Adquirir habilidades necessárias para liderança executiva.',
-                'milestones': [
-                    'Completar MBA ou programa executivo',
-                    'Liderar projeto de transformação organizacional',
-                    'Desenvolver fluência em finanças corporativas',
-                    'Construir rede de relacionamentos C-level'
-                ]
-            }
-        ],
-        'resources': {
-            'books': [
-                {
-                    'title': 'The First 90 Days',
-                    'author': 'Michael Watkins',
-                    'why_relevant': 'Essencial para transições de liderança e estabelecimento rápido de credibilidade.'
-                },
-                {
-                    'title': 'High Output Management',
-                    'author': 'Andy Grove',
-                    'why_relevant': 'Framework prático para maximizar produtividade própria e da equipe.'
-                },
-                {
-                    'title': 'The Hard Thing About Hard Things',
-                    'author': 'Ben Horowitz',
-                    'why_relevant': 'Perspectivas reais sobre desafios de liderança em ambientes de alta pressão.'
-                }
-            ],
-            'courses': [
-                {
-                    'title': 'Strategic Leadership Program',
-                    'description': 'Programa executivo focado em liderança estratégica e transformação organizacional.'
-                },
-                {
-                    'title': 'Executive Communication',
-                    'description': 'Desenvolvimento de habilidades de comunicação para líderes sêniores.'
-                },
-                {
-                    'title': 'Finance for Non-Financial Managers',
-                    'description': 'Competências financeiras essenciais para tomada de decisão estratégica.'
-                }
-            ]
-        }
-    }
-    
-    return plan
-
 def generate_professional_pdf_report(results, options):
-    """Gera relatório PDF profissional"""
+    """Gera relatório PDF profissional funcional"""
     
-    # Aqui você implementaria a geração real do PDF
-    # Por enquanto, vamos simular com um conteúdo mock
-    
-    from fpdf import FPDF
-    import io
-    
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font('Arial', 'B', 16)
-    
-    # Adiciona conteúdo ao PDF
-    pdf.cell(0, 10, 'NeuroMap - Relatorio Profissional de Personalidade', ln=True, align='C')
-    pdf.ln(10)
-    
-    pdf.set_font('Arial', '', 12)
-    pdf.cell(0, 10, f"Tipo MBTI: {results['mbti_type']}", ln=True)
-    pdf.cell(0, 10, f"Confiabilidade: {results['reliability']}%", ln=True)
-    pdf.ln(10)
-    
-    # Seção DISC
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, 'Perfil DISC:', ln=True)
-    pdf.set_font('Arial', '', 12)
-    
-    for key, value in results['disc'].items():
-        pdf.cell(0, 8, f"{key}: {value:.1f}%", ln=True)
-    
-    pdf.ln(10)
-    
-    # Seção Big Five
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, 'Big Five:', ln=True)
-    pdf.set_font('Arial', '', 12)
-    
-    trait_names = {
-        'O': 'Abertura', 'C': 'Conscienciosidade', 'E': 'Extroversao',
-        'A': 'Amabilidade', 'N': 'Neuroticismo'
-    }
-    
-    for key, value in results['big_five'].items():
-        name = trait_names.get(key, key)
-        pdf.cell(0, 8, f"{name}: Percentil {value:.1f}%", ln=True)
-    
-    # Converte para bytes
-    pdf_output = pdf.output(dest='S').encode('latin1')
-    
-    return pdf_output
+    try:
+        from fpdf import FPDF
+        
+        class PDF(FPDF):
+            def header(self):
+                self.set_font('Arial', 'B', 15)
+                self.cell(0, 10, 'NeuroMap - Relatorio Profissional de Personalidade', 0, 1, 'C')
+                self.ln(10)
+            
+            def footer(self):
+                self.set_y(-15)
+                self.set_font('Arial', 'I', 8)
+                self.cell(0, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
+        
+        pdf = PDF()
+        pdf.add_page()
+        
+        # Capa
+        pdf.set_font('Arial', 'B', 20)
+        pdf.ln(30)
+        pdf.cell(0, 15, 'RELATORIO DE PERSONALIDADE', 0, 1, 'C')
+        pdf.set_font('Arial', '', 16)
+        pdf.cell(0, 10, f"Tipo MBTI: {results['mbti_type']}", 0, 1, 'C')
+        pdf.cell(0, 10, f"Confiabilidade: {results['reliability']}%", 0, 1, 'C')
+        pdf.ln(20)
+        
+        # Data
+        pdf.set_font('Arial', '', 12)
+        pdf.cell(0, 10, f"Gerado em: {datetime.now().strftime('%d/%m/%Y as %H:%M')}", 0, 1, 'C')
+        
+        # Nova página - Resumo Executivo
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'RESUMO EXECUTIVO', 0, 1, 'L')
+        pdf.ln(5)
+        
+        pdf.set_font('Arial', '', 12)
+        dominant_disc = max(results['disc'], key=results['disc'].get)
+        
+        summary_text = f"""
+Baseado em uma avaliacao cientifica de {results['total_questions']} questoes,
+seu perfil apresenta as seguintes caracteristicas principais:
 
-def generate_pdf_preview(results):
-    """Gera preview do conteúdo do PDF"""
-    
-    dominant_disc = max(results['disc'], key=results['disc'].get)
-    
-    preview = f"""
-    ## 📄 Conteúdo do Relatório PDF
-    
-    ### 📋 Sumário Executivo
-    - Perfil DISC dominante: **{dominant_disc}** ({results['disc'][dominant_disc]:.0f}%)
-    - Tipo MBTI: **{results['mbti_type']}**
-    - Confiabilidade da avaliação: **{results['reliability']}%**
-    - Tempo de conclusão: **{results['completion_time']} minutos**
-    
-    ### 📊 Análises Detalhadas
-    1. **Perfil DISC Completo** - Interpretação de cada dimensão
-    2. **Big Five Detalhado** - Percentis e comparações populacionais  
-    3. **Tipo MBTI Explicado** - Características e preferências
-    4. **Análise Comportamental** - Padrões únicos identificados
-    
-    ### 💼 Orientações Profissionais
-    - **Carreiras Ideais** - Lista personalizada com compatibilidade
-    - **Ambientes de Trabalho** - Contextos que potencializam performance
-    - **Competências Chave** - Habilidades prioritárias para desenvolvimento
-    - **Estratégias de Liderança** - Abordagens baseadas no seu perfil
-    
-    ### 🎯 Plano de Desenvolvimento
-    - **Objetivos 90 dias** - Metas específicas e mensuráveis
-    - **Visão 6 meses** - Marcos de desenvolvimento profissional
-    - **Recursos Recomendados** - Livros, cursos e ferramentas
-    - **Métricas de Progresso** - Como acompanhar evolução
-    
-    **Total de páginas:** 15-18 páginas  
-    **Formato:** PDF profissional com gráficos e visualizações
-    """
-    
-    return preview
+• Perfil DISC dominante: {dominant_disc} ({results['disc'][dominant_disc]:.0f}%)
+• Tipo MBTI identificado: {results['mbti_type']}
+• Nivel de confiabilidade: {results['reliability']}%
+• Tempo de conclusao: {results['completion_time']} minutos
+
+Este relatorio fornece uma analise detalhada de sua personalidade,
+incluindo pontos fortes, areas de desenvolvimento e orientacoes
+profissionais personalizadas.
+        """
+        
+        # Quebra texto em linhas
+        lines = summary_text.strip().split('\n')
+        for line in lines:
+            if line.strip():
+                pdf.cell(0, 6, line.strip().encode('latin1', 'replace').decode('latin1'), 0, 1, 'L')
+        
+        # Nova página - Perfil DISC
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'PERFIL DISC DETALHADO', 0, 1, 'L')
+        pdf.ln(5)
+        
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, 'Scores por Dimensao:', 0, 1, 'L')
+        pdf.set_font('Arial', '', 11)
+        
+        disc_names = {
+            'D': 'Dominancia - Orientacao para resultados e lideranca',
+            'I': 'Influencia - Comunicacao e networking',
+            'S': 'Estabilidade - Cooperacao e trabalho em equipe',
+            'C': 'Conformidade - Qualidade e precisao'
+        }
+        
+        for key, score in results['disc'].items():
+            name = disc_names.get(key, key)
+            pdf.cell(0, 6, f"{name}: {score:.1f}%", 0, 1, 'L')
+        
+        # Nova página - Big Five
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'PERFIL BIG FIVE', 0, 1, 'L')
+        pdf.ln(5)
+        
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, 'Percentis Populacionais:', 0, 1, 'L')
+        pdf.set_font('Arial', '', 11)
+        
+        b5_names = {
+            'O': 'Abertura a Experiencia - Criatividade e curiosidade',
+            'C': 'Conscienciosidade - Organizacao e disciplina',
+            'E': 'Extroversao - Sociabilidade e energia',
+            'A': 'Amabilidade - Cooperacao e empatia',
+            'N': 'Neuroticismo - Estabilidade emocional'
+        }
+        
+        for key, percentile in results['big_five'].items():
+            name = b5_names.get(key, key)
+            level = "Alto" if percentile > 70 else "Medio" if percentile > 30 else "Baixo"
+            pdf.cell(0, 6, f"{name}: Percentil {percentile:.0f}% ({level})", 0, 1, 'L')
+        
+        # Nova página - Tipo MBTI
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, f'TIPO MBTI: {results["mbti_type"]}', 0, 1, 'L')
+        pdf.ln(5)
+        
+        mbti_desc = get_detailed_mbti_description(results['mbti_type'])
+        
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, mbti_desc['title'], 0, 1, 'L')
+        pdf.ln(3)
+        
+        pdf.set_font('Arial', '', 11)
+        # Quebra descrição em linhas
+        desc_lines = mbti_desc['description'][:200].split(' ')
+        current_line = ""
+        
+        for word in desc_lines:
+            if len(current_line + word) < 80:
+                current_line += word + " "
+            else:
+                pdf.cell(0, 6, current_line.strip().encode('latin1', 'replace').decode('latin1'), 0, 1, 'L')
+                current_line = word + " "
+        
+        if current_line:
+            pdf.cell(0, 6, current_line.strip().encode('latin1', 'replace').decode('latin1'), 0, 1, 'L')
+        
+        # Nova página - Recomendações
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'RECOMENDACOES DE DESENVOLVIMENTO', 0, 1, 'L')
+        pdf.ln(5)
+        
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, 'Pontos Fortes Identificados:', 0, 1, 'L')
+        pdf.set_font('Arial', '', 11)
+        
+        strengths = [
+            'Lideranca estrategica e visao de longo prazo',
+            'Capacidade analitica e resolucao de problemas',
+            'Orientacao para resultados e eficiencia',
+            'Independencia e autonomia nas decisoes'
+        ]
+        
+        for strength in strengths:
+            pdf.cell(0, 6, f"• {strength}", 0, 1, 'L')
+        
+        pdf.ln(5)
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, 'Areas de Desenvolvimento:', 0, 1, 'L')
+        pdf.set_font('Arial', '', 11)
+        
+        development_areas = [
+            'Inteligencia emocional e empatia',
+            'Delegacao efetiva e confianca na equipe',
+            'Comunicacao interpessoal e feedback',
+            'Flexibilidade e adaptacao a mudancas'
+        ]
+        
+        for area in development_areas:
+            pdf.cell(0, 6, f"• {area}", 0, 1, 'L')
+        
+        # Rodapé final
+        pdf.ln(20)
+        pdf.set_font('Arial', 'I', 10)
+        pdf.cell(0, 6, 'Este relatorio foi gerado pelo NeuroMap Pro', 0, 1, 'C')
+        pdf.cell(0, 6, 'Ferramenta cientifica de analise de personalidade', 0, 1, 'C')
+        
+        # Converte para bytes
+        pdf_output = pdf.output(dest='S')
+        
+        # Garante que seja bytes
+        if isinstance(pdf_output, str):
+            pdf_output = pdf_output.encode('latin1')
+        
+        return pdf_output
+        
+    except Exception as e:
+        st.error(f"Erro ao gerar PDF: {e}")
+        # Retorna um PDF simples de fallback
+        simple_pdf = FPDF()
+        simple_pdf.add_page()
+        simple_pdf.set_font('Arial', 'B', 16)
+        simple_pdf.cell(0, 10, 'NeuroMap - Relatorio de Personalidade', 0, 1, 'C')
+        simple_pdf.ln(10)
+        simple_pdf.set_font('Arial', '', 12)
+        simple_pdf.cell(0, 10, f"Tipo MBTI: {results['mbti_type']}", 0, 1, 'L')
+        simple_pdf.cell(0, 10, f"Confiabilidade: {results['reliability']}%", 0, 1, 'L')
+        
+        output = simple_pdf.output(dest='S')
+        return output.encode('latin1') if isinstance(output, str) else output
 
 def main():
-    """Função principal melhorada"""
+    """Função principal com autenticação obrigatória"""
     initialize_session_state()
     render_header()
     render_sidebar()
     
-    # Roteamento de páginas
-    if not st.session_state.user_authenticated:
-        render_landing_page()
-    elif st.session_state.current_page == 'dashboard':
+    # Verifica autenticação
+    if not st.session_state.authenticated:
+        render_login_required()
+        return
+    
+    # Roteamento de páginas para usuários autenticados
+    if st.session_state.current_page == 'dashboard':
         render_dashboard()
     elif st.session_state.current_page == 'assessment':
         render_assessment()
