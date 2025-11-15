@@ -31,17 +31,17 @@ FIREBASE_RESET_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOo
 st.markdown("""
 <style>
     .stApp {
-        background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+        background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
     }
     
     .main-header {
-        background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%);
+        background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
         color: white;
         padding: 3rem 2rem;
         border-radius: 20px;
         margin-bottom: 2rem;
         text-align: center;
-        box-shadow: 0 8px 32px rgba(49, 130, 206, 0.3);
+        box-shadow: 0 8px 32px rgba(56, 161, 105, 0.3);
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
@@ -49,9 +49,9 @@ st.markdown("""
         background: rgba(255, 255, 255, 0.95);
         padding: 2rem;
         border-radius: 15px;
-        border-left: 6px solid #3182ce;
+        border-left: 6px solid #38a169;
         margin: 1rem 0;
-        box-shadow: 0 4px 20px rgba(49, 130, 206, 0.15);
+        box-shadow: 0 4px 20px rgba(56, 161, 105, 0.15);
         backdrop-filter: blur(10px);
     }
     
@@ -59,123 +59,42 @@ st.markdown("""
         background: rgba(255, 255, 255, 0.95);
         padding: 2.5rem;
         border-radius: 15px;
-        border-left: 6px solid #3182ce;
+        border-left: 6px solid #38a169;
         margin: 2rem 0;
-        box-shadow: 0 6px 25px rgba(49, 130, 206, 0.15);
+        box-shadow: 0 6px 25px rgba(56, 161, 105, 0.15);
         color: #1a202c;
         backdrop-filter: blur(10px);
-    }
-    
-    .question-container h4 {
-        font-size: 1.3rem;
-        font-weight: 600;
-        line-height: 1.5;
-        margin-bottom: 1.5rem;
-        color: #2d3748;
     }
     
     .insight-card {
-        background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+        background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
         padding: 2rem;
         border-radius: 15px;
         margin: 1.5rem 0;
-        border-left: 6px solid #3182ce;
-        box-shadow: 0 4px 20px rgba(49, 130, 206, 0.15);
+        border-left: 6px solid #38a169;
+        box-shadow: 0 4px 20px rgba(56, 161, 105, 0.15);
         color: #1a202c;
-    }
-    
-    .auth-container {
-        background: rgba(255, 255, 255, 0.95);
-        padding: 2.5rem;
-        border-radius: 15px;
-        margin: 1.5rem 0;
-        box-shadow: 0 6px 25px rgba(49, 130, 206, 0.15);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
-    }
-    
-    .strength-card {
-        background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        margin: 0.8rem 0;
-        box-shadow: 0 4px 15px rgba(56, 161, 105, 0.3);
-    }
-    
-    .development-card {
-        background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        margin: 0.8rem 0;
-        box-shadow: 0 4px 15px rgba(237, 137, 54, 0.3);
-    }
-    
-    .career-card {
-        background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        margin: 0.8rem 0;
-        box-shadow: 0 4px 15px rgba(128, 90, 213, 0.3);
-    }
-    
-    .login-required {
-        background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%);
-        color: white;
-        padding: 3rem 2rem;
-        border-radius: 20px;
-        text-align: center;
-        margin: 2rem 0;
-        box-shadow: 0 8px 32px rgba(49, 130, 206, 0.3);
-    }
-    
-    .stRadio > div {
-        background: rgba(255, 255, 255, 0.9);
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
-        border: 1px solid #e2e8f0;
-    }
-    
-    .stMarkdown {
-        color: #1a202c;
-    }
-    
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
-        color: #2d3748 !important;
-        font-weight: 700;
-    }
-    
-    .stMarkdown p {
-        color: #4a5568 !important;
-        line-height: 1.6;
     }
     
     .stButton > button {
-        background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%);
+        background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
         color: white;
         border: none;
         border-radius: 12px;
         padding: 0.8rem 2rem;
         font-weight: 600;
-        box-shadow: 0 4px 15px rgba(49, 130, 206, 0.3);
+        box-shadow: 0 4px 15px rgba(56, 161, 105, 0.3);
         transition: all 0.3s ease;
     }
     
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(49, 130, 206, 0.4);
-        background: linear-gradient(135deg, #2c5aa0 0%, #2a4d8d 100%);
-    }
-    
-    /* Progresso */
-    .stProgress > div > div > div {
-        background: linear-gradient(90deg, #3182ce 0%, #63b3ed 100%);
+        box-shadow: 0 6px 20px rgba(56, 161, 105, 0.4);
+        background: linear-gradient(135deg, #2f855a 0%, #276749 100%);
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 # Questões da avaliação (48 questões)
