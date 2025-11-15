@@ -333,15 +333,19 @@ def firebase_signin(email, password):
         return False, None, f"Erro de conexão: {str(e)}"
 
 def save_assessment_to_firestore(user_id, results):
-    """Salva avaliação no Firestore usando REST API"""
+    """Salva avaliação no Firestore usando REST API com debug detalhado"""
     
     if not FIREBASE_PROJECT_ID or not user_id:
         st.error("❌ Dados incompletos para salvar no Firestore")
+        st.error(f"Project ID: {'✅' if FIREBASE_PROJECT_ID else '❌'}")
+        st.error(f"User ID: {'✅' if user_id else '❌'}")
         return False
     
     try:
         # URL REST do Firestore
         doc_url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/users/{user_id}?key={FIREBASE_API_KEY}"
+        
+        st.info(f"🔗 **URL:** {doc_url}")
         
         # Dados no formato Firestore
         firestore_data = {
@@ -352,48 +356,69 @@ def save_assessment_to_firestore(user_id, results):
                             "disc": {
                                 "mapValue": {
                                     "fields": {
-                                        "D": {"doubleValue": results["disc"]["D"]},
-                                        "I": {"doubleValue": results["disc"]["I"]},
-                                        "S": {"doubleValue": results["disc"]["S"]},
-                                        "C": {"doubleValue": results["disc"]["C"]}
+                                        "D": {"doubleValue": float(results["disc"]["D"])},
+                                        "I": {"doubleValue": float(results["disc"]["I"])},
+                                        "S": {"doubleValue": float(results["disc"]["S"])},
+                                        "C": {"doubleValue": float(results["disc"]["C"])}
                                     }
                                 }
                             },
-                            "mbti_type": {"stringValue": results["mbti_type"]},
-                            "reliability": {"integerValue": str(results["reliability"])},
-                            "completion_time": {"integerValue": str(results["completion_time"])},
-                            "total_questions": {"integerValue": str(results["total_questions"])},
-                            "response_consistency": {"doubleValue": results["response_consistency"]},
-                            "response_variance": {"doubleValue": results["response_variance"]},
-                            "answered_questions": {"integerValue": str(results["answered_questions"])}
+                            "mbti_type": {"stringValue": str(results["mbti_type"])},
+                            "reliability": {"integerValue": str(int(results["reliability"]))},
+                            "completion_time": {"integerValue": str(int(results["completion_time"]))},
+                            "total_questions": {"integerValue": str(int(results["total_questions"]))},
+                            "response_consistency": {"doubleValue": float(results["response_consistency"])},
+                            "response_variance": {"doubleValue": float(results["response_variance"])},
+                            "answered_questions": {"integerValue": str(int(results["answered_questions"]))}
                         }
                     }
                 },
                 "timestamp": {"timestampValue": datetime.now().isoformat() + "Z"},
-                "user_email": {"stringValue": st.session_state.user_email},
-                "user_id": {"stringValue": user_id},
-                "version": {"stringValue": "7.0"}
+                "user_email": {"stringValue": str(st.session_state.user_email)},
+                "user_id": {"stringValue": str(user_id)},
+                "version": {"stringValue": "8.0"}
             }
         }
         
-        # Headers simples
+        # Headers
         headers = {
             "Content-Type": "application/json"
         }
         
+        st.info("📤 **Enviando dados para Firestore...**")
+        
         # Requisição PATCH para criar/atualizar documento
         response = requests.patch(doc_url, json=firestore_data, headers=headers, timeout=30)
         
+        st.info(f"📡 **Status HTTP:** {response.status_code}")
+        
         if response.status_code in [200, 201]:
-            st.success("✅ Avaliação salva no Firestore!")
+            st.success("✅ **SUCESSO!** Dados salvos no Firestore!")
             return True
         else:
-            st.error(f"❌ Erro Firestore: {response.status_code}")
+            st.error(f"❌ **Erro Firestore:** {response.status_code}")
+            st.error(f"**Response:** {response.text}")
+            
+            # Tenta diagnóstico do erro
+            if response.status_code == 403:
+                st.error("🚫 **Erro de Permissão:** Verifique as regras do Firestore")
+            elif response.status_code == 400:
+                st.error("📝 **Erro de Formato:** Dados mal formatados")
+            elif response.status_code == 401:
+                st.error("🔑 **Erro de Auth:** API Key inválida")
+            
             return False
         
-    except Exception as e:
-        st.error(f"❌ Erro geral: {str(e)}")
+    except requests.exceptions.Timeout:
+        st.error("⏰ **Timeout:** Firestore demorou para responder")
         return False
+    except requests.exceptions.ConnectionError:
+        st.error("🌐 **Erro de Conexão:** Verifique sua internet")
+        return False
+    except Exception as e:
+        st.error(f"❌ **Erro geral:** {str(e)}")
+        return False
+
 
 def load_assessment_from_firestore(user_id):
     """Carrega avaliação do Firestore usando REST API"""
@@ -914,8 +939,13 @@ def render_assessment():
     questions = st.session_state.selected_questions
     st.title("📝 Avaliação de Personalidade")
     
-    # Progress
+    # Variáveis de paginação
+    questions_per_page = 6
     total_questions = len(questions)
+    total_pages = (total_questions + questions_per_page - 1) // questions_per_page
+    current_page = st.session_state.question_page
+    
+    # Progress geral
     answered = len([k for k, v in st.session_state.assessment_answers.items() if v > 0])
     progress = answered / total_questions if total_questions > 0 else 0
     
@@ -933,9 +963,9 @@ def render_assessment():
         if st.session_state.assessment_start_time:
             elapsed = (datetime.now() - st.session_state.assessment_start_time).seconds // 60
             st.metric("⏱️ Tempo", f"{elapsed} min")
-
-    # Adicione esta seção após o progress geral, na função render_assessment:
-
+    
+    st.markdown("---")
+    
     # Progress da página atual
     current_page_start = current_page * questions_per_page
     current_page_end = min(current_page_start + questions_per_page, total_questions)
@@ -947,21 +977,16 @@ def render_assessment():
         if q['display_id'] in st.session_state.assessment_answers:
             page_answered += 1
     
-    page_progress = page_answered / len(current_page_questions)
+    page_progress = page_answered / len(current_page_questions) if len(current_page_questions) > 0 else 0
     
     st.info(f"📄 **Página {current_page + 1}:** {page_answered}/{len(current_page_questions)} questões respondidas ({page_progress:.1%})")
     
     if page_progress == 1.0 and current_page < total_pages - 1:
         st.success("✅ **Página completa!** Responda a última questão para avançar automaticamente.")
-
     
     st.markdown("---")
     
     # Navegação por páginas
-    questions_per_page = 6
-    total_pages = (total_questions + questions_per_page - 1) // questions_per_page
-    current_page = st.session_state.question_page
-    
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col1:
@@ -1005,21 +1030,50 @@ def render_assessment():
                     # Calcula resultados
                     calculate_results()
                     
-                    # Salva no Firestore
-                    if st.session_state.user_id and st.session_state.results:
-                        save_success = save_assessment_to_firestore(st.session_state.user_id, st.session_state.results)
-                        
-                        if save_success:
-                            st.balloons()
-                            st.success("🎉 Resultados calculados e salvos!")
-                        else:
-                            st.warning("⚠️ Resultados calculados, mas problema no salvamento")
+                    # Debug dos resultados
+                    if st.session_state.results:
+                        st.success("✅ Resultados calculados com sucesso!")
+                        st.json({
+                            "mbti_type": st.session_state.results['mbti_type'],
+                            "disc_scores": st.session_state.results['disc'],
+                            "reliability": st.session_state.results['reliability']
+                        })
+                    else:
+                        st.error("❌ Erro ao calcular resultados!")
+                        return
                     
-                    st.session_state.assessment_completed = True
-                    st.session_state.current_page = 'results'
+                    # Salva no Firestore com debug detalhado
+                    st.markdown("### 💾 Salvando no Firebase")
                     
-                    time.sleep(2)
-                    st.rerun()
+                    if not st.session_state.user_id:
+                        st.error("❌ User ID não encontrado")
+                        return
+                    
+                    if not FIREBASE_PROJECT_ID:
+                        st.error("❌ Firebase Project ID não configurado")
+                        return
+                    
+                    if not FIREBASE_API_KEY:
+                        st.error("❌ Firebase API Key não configurado")
+                        return
+                    
+                    st.info(f"🔄 Tentando salvar para usuário: {st.session_state.user_id}")
+                    
+                    save_success = save_assessment_to_firestore(st.session_state.user_id, st.session_state.results)
+                    
+                    if save_success:
+                        st.balloons()
+                        st.success("🎉 **SUCESSO TOTAL!** Resultados calculados e salvos no Firebase!")
+                        st.session_state.assessment_completed = True
+                        st.session_state.current_page = 'results'
+                        time.sleep(3)
+                        st.rerun()
+                    else:
+                        st.error("❌ Problema no salvamento, mas resultados estão disponíveis")
+                        st.session_state.assessment_completed = True
+                        st.session_state.current_page = 'results'
+                        time.sleep(2)
+                        st.rerun()
         else:
             st.info(f"📝 Faltam {remaining} questões para finalizar")
     
@@ -1029,6 +1083,7 @@ def render_assessment():
             st.session_state.selected_questions = None
             st.session_state.question_page = 0
             st.rerun()
+
 
 def render_single_question(question):
     """Renderiza uma questão individual com auto-avanço"""
@@ -1066,30 +1121,35 @@ def render_single_question(question):
     st.session_state.assessment_answers[question['display_id']] = selected[0]
     
     # Verifica se mudou a resposta para trigger auto-avanço
-    if old_value != selected[0]:
-        # Verifica se todas as questões da página atual foram respondidas
-        questions_per_page = 6
-        current_page = st.session_state.question_page
-        total_questions = len(st.session_state.selected_questions)
-        total_pages = (total_questions + questions_per_page - 1) // questions_per_page
-        
-        start_idx = current_page * questions_per_page
-        end_idx = min(start_idx + questions_per_page, total_questions)
-        
-        # Verifica se todas as questões da página atual foram respondidas
-        page_complete = True
-        for i in range(start_idx, end_idx):
-            q = st.session_state.selected_questions[i]
-            if q['display_id'] not in st.session_state.assessment_answers:
-                page_complete = False
-                break
-        
-        # Se página completa e não é a última página, avança automaticamente
-        if page_complete and current_page < total_pages - 1:
-            st.session_state.question_page += 1
-            st.success("✅ Página concluída! Avançando automaticamente...")
-            time.sleep(1)  # Pequena pausa para feedback visual
-            st.rerun()
+    if old_value != selected[0] and st.session_state.selected_questions:
+        try:
+            # Verifica se todas as questões da página atual foram respondidas
+            questions_per_page = 6
+            current_page = st.session_state.question_page
+            total_questions = len(st.session_state.selected_questions)
+            total_pages = (total_questions + questions_per_page - 1) // questions_per_page
+            
+            start_idx = current_page * questions_per_page
+            end_idx = min(start_idx + questions_per_page, total_questions)
+            
+            # Verifica se todas as questões da página atual foram respondidas
+            page_complete = True
+            for i in range(start_idx, end_idx):
+                q = st.session_state.selected_questions[i]
+                if q['display_id'] not in st.session_state.assessment_answers:
+                    page_complete = False
+                    break
+            
+            # Se página completa e não é a última página, avança automaticamente
+            if page_complete and current_page < total_pages - 1:
+                st.session_state.question_page += 1
+                st.success("✅ Página concluída! Avançando automaticamente...")
+                time.sleep(0.5)  # Pequena pausa para feedback visual
+                st.rerun()
+                
+        except Exception as e:
+            # Se der erro no auto-avanço, apenas continua normalmente
+            pass
     
     feedback_emojis = {1: "🔴", 2: "🟠", 3: "🟡", 4: "🟢", 5: "🟢"}
     feedback_texts = {
@@ -1102,6 +1162,7 @@ def render_single_question(question):
     
     st.caption(f"{feedback_emojis[selected[0]]} {feedback_texts[selected[0]]}")
     st.markdown("---")
+
 
 
 def render_results():
