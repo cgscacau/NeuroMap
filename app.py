@@ -946,7 +946,7 @@ def render_assessment():
     current_page = st.session_state.question_page
     
     # Progress geral (no topo)
-    answered = len([k for k, v in st.session_state.assessment_answers.items() if v != 3])  # Não conta neutros
+    answered = len([k for k, v in st.session_state.assessment_answers.items() if v > 0])  # Conta todas as respostas válidas
     progress = answered / total_questions if total_questions > 0 else 0
     
     col1, col2, col3, col4 = st.columns(4)
@@ -977,8 +977,7 @@ def render_assessment():
     page_answered = 0
     for i in current_page_questions:
         q = questions[i]
-        answer = st.session_state.assessment_answers.get(q['display_id'], 3)
-        if answer != 3:  # Não conta neutros
+        if q['display_id'] in st.session_state.assessment_answers:  # Conta se foi respondida
             page_answered += 1
     
     page_progress = page_answered / len(current_page_questions) if len(current_page_questions) > 0 else 0
@@ -1216,12 +1215,12 @@ def render_single_question(question):
     # 1. A resposta mudou de verdade (não é valor inicial)
     # 2. A mudança não foi para o valor padrão (3)
     # 3. Existe questões selecionadas
-    should_check_advance = (
-        old_value != new_value and  # Resposta mudou
-        new_value != 3 and         # Não mudou para neutro
-        old_value != 3 and         # Não era neutro antes
-        st.session_state.selected_questions  # Questões existem
-    )
+    #should_check_advance = (
+     #   old_value != new_value and  # Resposta mudou
+      #  new_value != 3 and         # Não mudou para neutro
+       # old_value != 3 and         # Não era neutro antes
+        #st.session_state.selected_questions  # Questões existem
+    #)
     
     if should_check_advance:
         try:
