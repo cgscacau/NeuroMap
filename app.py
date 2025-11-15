@@ -933,6 +933,27 @@ def render_assessment():
         if st.session_state.assessment_start_time:
             elapsed = (datetime.now() - st.session_state.assessment_start_time).seconds // 60
             st.metric("⏱️ Tempo", f"{elapsed} min")
+
+    # Adicione esta seção após o progress geral, na função render_assessment:
+
+    # Progress da página atual
+    current_page_start = current_page * questions_per_page
+    current_page_end = min(current_page_start + questions_per_page, total_questions)
+    current_page_questions = list(range(current_page_start, current_page_end))
+    
+    page_answered = 0
+    for i in current_page_questions:
+        q = questions[i]
+        if q['display_id'] in st.session_state.assessment_answers:
+            page_answered += 1
+    
+    page_progress = page_answered / len(current_page_questions)
+    
+    st.info(f"📄 **Página {current_page + 1}:** {page_answered}/{len(current_page_questions)} questões respondidas ({page_progress:.1%})")
+    
+    if page_progress == 1.0 and current_page < total_pages - 1:
+        st.success("✅ **Página completa!** Responda a última questão para avançar automaticamente.")
+
     
     st.markdown("---")
     
@@ -1010,7 +1031,7 @@ def render_assessment():
             st.rerun()
 
 def render_single_question(question):
-    """Renderiza uma questão individual"""
+    """Renderiza uma questão individual com auto-avanço"""
     
     st.markdown(f"""
     <div class="question-container">
@@ -1040,7 +1061,35 @@ def render_single_question(question):
         label_visibility="collapsed"
     )
     
+    # Armazena resposta
+    old_value = st.session_state.assessment_answers.get(question['display_id'], 3)
     st.session_state.assessment_answers[question['display_id']] = selected[0]
+    
+    # Verifica se mudou a resposta para trigger auto-avanço
+    if old_value != selected[0]:
+        # Verifica se todas as questões da página atual foram respondidas
+        questions_per_page = 6
+        current_page = st.session_state.question_page
+        total_questions = len(st.session_state.selected_questions)
+        total_pages = (total_questions + questions_per_page - 1) // questions_per_page
+        
+        start_idx = current_page * questions_per_page
+        end_idx = min(start_idx + questions_per_page, total_questions)
+        
+        # Verifica se todas as questões da página atual foram respondidas
+        page_complete = True
+        for i in range(start_idx, end_idx):
+            q = st.session_state.selected_questions[i]
+            if q['display_id'] not in st.session_state.assessment_answers:
+                page_complete = False
+                break
+        
+        # Se página completa e não é a última página, avança automaticamente
+        if page_complete and current_page < total_pages - 1:
+            st.session_state.question_page += 1
+            st.success("✅ Página concluída! Avançando automaticamente...")
+            time.sleep(1)  # Pequena pausa para feedback visual
+            st.rerun()
     
     feedback_emojis = {1: "🔴", 2: "🟠", 3: "🟡", 4: "🟢", 5: "🟢"}
     feedback_texts = {
@@ -1053,6 +1102,7 @@ def render_single_question(question):
     
     st.caption(f"{feedback_emojis[selected[0]]} {feedback_texts[selected[0]]}")
     st.markdown("---")
+
 
 def render_results():
     """Renderiza página de resultados"""
@@ -1420,7 +1470,7 @@ def generate_insights(dominant_disc, mbti_type, results):
             }
 
 def generate_html_report(results):
-    """Gera relatório em HTML"""
+    """Gera relatório em HTML com gráficos visuais"""
     
     try:
         user_email = st.session_state.user_email
@@ -1437,122 +1487,406 @@ def generate_html_report(results):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NeuroMap Pro - Relatório de {user_name}</title>
     <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
         body {{
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
-            margin: 0 auto;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             padding: 20px;
-            background: #f5f5f5;
         }}
+        
+        .container {{
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }}
+        
         .header {{
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 30px;
+            padding: 40px;
             text-align: center;
+        }}
+        
+        .header h1 {{
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }}
+        
+        .content {{
+            padding: 40px;
+        }}
+        
+        .section {{
+            margin-bottom: 40px;
+        }}
+        
+        .section h2 {{
+            color: #667eea;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }}
+        
+        .user-info {{
+            background: #f8f9fa;
+            padding: 20px;
             border-radius: 10px;
             margin-bottom: 30px;
+            border-left: 5px solid #667eea;
         }}
-        .section {{
-            background: white;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        
+        .metrics {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
         }}
-        .disc-item {{
-            padding: 15px;
-            margin: 10px 0;
-            border-left: 4px solid #667eea;
+        
+        .metric-card {{
             background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #667eea;
         }}
-        .strength {{ background: #d4edda; border-left-color: #28a745; }}
-        .development {{ background: #f8d7da; border-left-color: #dc3545; }}
-        .career {{ background: #e2e3ff; border-left-color: #6f42c1; }}
-        h1, h2 {{ color: #667eea; }}
+        
+        .metric-value {{
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }}
+        
+        .metric-label {{
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }}
+        
+        /* Gráfico DISC com barras CSS */
+        .disc-chart {{
+            display: grid;
+            gap: 20px;
+            margin: 30px 0;
+        }}
+        
+        .disc-item {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+        }}
+        
+        .disc-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            z-index: 2;
+            position: relative;
+        }}
+        
+        .disc-bar-container {{
+            position: relative;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }}
+        
+        .disc-bar {{
+            height: 100%;
+            border-radius: 15px;
+            position: relative;
+            transition: width 1s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }}
+        
+        .disc-description {{
+            color: #6c757d;
+            font-size: 0.95rem;
+            margin-top: 10px;
+        }}
+        
+        /* Cores específicas para cada dimensão DISC */
+        .disc-d {{ border-left: 5px solid #dc3545; }}
+        .disc-d .disc-bar {{ background: linear-gradient(90deg, #dc3545 0%, #e57373 100%); }}
+        
+        .disc-i {{ border-left: 5px solid #ffc107; }}
+        .disc-i .disc-bar {{ background: linear-gradient(90deg, #ffc107 0%, #ffeb3b 100%); }}
+        
+        .disc-s {{ border-left: 5px solid #28a745; }}
+        .disc-s .disc-bar {{ background: linear-gradient(90deg, #28a745 0%, #66bb6a 100%); }}
+        
+        .disc-c {{ border-left: 5px solid #007bff; }}
+        .disc-c .disc-bar {{ background: linear-gradient(90deg, #007bff 0%, #42a5f5 100%); }}
+        
+        /* Gráfico circular MBTI */
         .mbti-section {{
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
-            border-radius: 8px;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
             text-align: center;
+        }}
+        
+        .mbti-type {{
+            font-size: 4rem;
+            font-weight: bold;
+            margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }}
+        
+        .mbti-circle {{
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto;
+            border: 3px solid rgba(255,255,255,0.5);
+        }}
+        
+        .insights-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 30px 0;
+        }}
+        
+        .insight-card {{
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }}
+        
+        .strengths {{
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }}
+        
+        .development {{
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+        }}
+        
+        .careers {{
+            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+            color: white;
+        }}
+        
+        .insight-card h3 {{
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }}
+        
+        .insight-card ul {{
+            list-style: none;
+            padding: 0;
+        }}
+        
+        .insight-card li {{
+            padding: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }}
+        
+        .insight-card li:before {{
+            content: "●";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }}
+        
+        .footer {{
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
+        }}
+        
+        /* Animações */
+        @keyframes slideIn {{
+            from {{ opacity: 0; transform: translateY(20px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
+        
+        .section {{
+            animation: slideIn 0.6s ease-out;
+        }}
+        
+        .disc-bar {{
+            animation: fillBar 2s ease-out;
+        }}
+        
+        @keyframes fillBar {{
+            from {{ width: 0%; }}
+        }}
+        
+        @media print {{
+            body {{ background: white; padding: 0; }}
+            .container {{ box-shadow: none; border-radius: 0; }}
         }}
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🧠 NeuroMap Pro</h1>
-        <p>Relatório de Análise de Personalidade</p>
-    </div>
-    
-    <div class="section">
-        <h2>📋 Informações Gerais</h2>
-        <p><strong>Usuário:</strong> {user_name} ({user_email})</p>
-        <p><strong>Data:</strong> {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
-        <p><strong>Tempo:</strong> {results['completion_time']} minutos</p>
-        <p><strong>Confiabilidade:</strong> {results['reliability']}%</p>
-    </div>
-    
-    <div class="section">
-        <h2>📊 Perfil DISC</h2>
-"""
+    <div class="container">
+        <div class="header">
+            <h1>🧠 NeuroMap Pro</h1>
+            <p style="font-size: 1.2rem; opacity: 0.9;">Relatório Completo de Análise de Personalidade</p>
+        </div>
         
+        <div class="content">
+            <div class="user-info">
+                <h3>📋 Informações Gerais</h3>
+                <p><strong>Usuário:</strong> {user_name} ({user_email})</p>
+                <p><strong>Data:</strong> {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
+                <p><strong>Tempo de Conclusão:</strong> {results['completion_time']} minutos</p>
+                <p><strong>Total de Questões:</strong> {results['total_questions']}</p>
+                <p><strong>Confiabilidade:</strong> {results['reliability']}%</p>
+            </div>
+            
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-value">{results['mbti_type']}</div>
+                    <div class="metric-label">Tipo MBTI</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{dominant_disc}</div>
+                    <div class="metric-label">DISC Dominante</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{results['reliability']}%</div>
+                    <div class="metric-label">Confiabilidade</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{results['response_consistency']:.1f}</div>
+                    <div class="metric-label">Consistência</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>📊 Análise DISC Detalhada</h2>
+                <div class="disc-chart">
+"""
+
+        # Adiciona gráfico DISC com barras
         disc_descriptions = {
-            "D": ("Dominância", "Orientação para resultados e liderança"),
-            "I": ("Influência", "Comunicação e networking"),
-            "S": ("Estabilidade", "Cooperação e paciência"),
-            "C": ("Conformidade", "Qualidade e precisão")
+            "D": ("Dominância", "Orientação para resultados, liderança direta, tomada de decisão rápida"),
+            "I": ("Influência", "Comunicação persuasiva, networking, motivação de equipes"),
+            "S": ("Estabilidade", "Cooperação, paciência, trabalho em equipe consistente"),
+            "C": ("Conformidade", "Foco em qualidade, precisão, análise sistemática")
         }
         
         for key, score in results['disc'].items():
             name, description = disc_descriptions[key]
+            
+            if score >= 35:
+                level_text = "Alto"
+            elif score >= 20:
+                level_text = "Moderado"
+            else:
+                level_text = "Baixo"
+            
             html_content += f"""
-        <div class="disc-item">
-            <strong>{name} ({key}): {score:.1f}%</strong><br>
-            {description}
-        </div>
+                    <div class="disc-item disc-{key.lower()}">
+                        <div class="disc-header">
+                            <span>{name} ({key})</span>
+                            <span>{score:.1f}% - {level_text}</span>
+                        </div>
+                        <div class="disc-bar-container">
+                            <div class="disc-bar" style="width: {score}%">
+                                {score:.0f}%
+                            </div>
+                        </div>
+                        <div class="disc-description">{description}</div>
+                    </div>
 """
-        
+
         html_content += f"""
-    </div>
-    
-    <div class="mbti-section">
-        <h2>💭 Tipo MBTI: {results['mbti_type']}</h2>
-        <h3>{mbti_descriptions['title']}</h3>
-        <p>{mbti_descriptions['description']}</p>
-    </div>
-    
-    <div class="section">
-        <h2>🎯 Insights e Recomendações</h2>
-        
-        <h3>🏆 Pontos Fortes</h3>
+                </div>
+            </div>
+            
+            <div class="mbti-section">
+                <div class="mbti-circle">
+                    <div class="mbti-type">{results['mbti_type']}</div>
+                </div>
+                <h2 style="color: white;">{mbti_descriptions['title']}</h2>
+                <p style="font-size: 1.1rem; margin-top: 15px;">{mbti_descriptions['description']}</p>
+            </div>
+            
+            <div class="section">
+                <h2>🎯 Insights e Recomendações</h2>
+                <div class="insights-grid">
+                    <div class="insight-card strengths">
+                        <h3>🏆 Pontos Fortes</h3>
+                        <ul>
 """
-        
+
         for strength in insights['strengths']:
-            html_content += f'        <div class="disc-item strength">• {strength}</div>\n'
-        
+            html_content += f"                            <li>{strength}</li>\n"
+
         html_content += """
-        
-        <h3>📈 Desenvolvimento</h3>
+                        </ul>
+                    </div>
+                    
+                    <div class="insight-card development">
+                        <h3>📈 Áreas de Desenvolvimento</h3>
+                        <ul>
 """
-        
+
         for area in insights['development']:
-            html_content += f'        <div class="disc-item development">• {area}</div>\n'
-        
+            html_content += f"                            <li>{area}</li>\n"
+
         html_content += """
-        
-        <h3>💼 Carreiras</h3>
+                        </ul>
+                    </div>
+                    
+                    <div class="insight-card careers">
+                        <h3>💼 Carreiras Sugeridas</h3>
+                        <ul>
 """
-        
+
         for career in insights['careers']:
-            html_content += f'        <div class="disc-item career">• {career}</div>\n'
-        
+            html_content += f"                            <li>{career}</li>\n"
+
         html_content += f"""
-    </div>
-    
-    <div class="section" style="text-align: center; color: #666;">
-        <p>Relatório gerado pelo NeuroMap Pro em {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Relatório gerado pelo <strong>NeuroMap Pro</strong> em {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
+            <p>Análise Científica Avançada de Personalidade</p>
+        </div>
     </div>
 </body>
 </html>
@@ -1561,7 +1895,7 @@ def generate_html_report(results):
         return html_content.encode('utf-8')
         
     except Exception as e:
-        st.error(f"❌ Erro ao gerar HTML: {str(e)}")
+        st.error(f"❌ Erro ao gerar relatório HTML: {str(e)}")
         return None
 
 def generate_text_report(results):
