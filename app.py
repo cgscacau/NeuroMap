@@ -1231,12 +1231,12 @@ def generate_insights(dominant_disc, mbti_type, results):
     
     return insights
 
+
 def generate_pdf_report(results):
-    """Gera relatório PDF com formato correto para download"""
+    """Gera relatório PDF com tratamento correto de tipos"""
     
     try:
         from fpdf import FPDF
-        import io
         
         class PDF(FPDF):
             def header(self):
@@ -1284,27 +1284,6 @@ def generate_pdf_report(results):
         mbti_descriptions = get_mbti_description(results['mbti_type'])
         pdf.set_font('Arial', '', 10)
         pdf.cell(0, 6, f"Perfil: {mbti_descriptions['title']}", 0, 1, 'L')
-        pdf.ln(3)
-        
-        # Remove caracteres especiais da descrição
-        description = mbti_descriptions['description']
-        description = (description.replace('ã', 'a').replace('ç', 'c').replace('é', 'e')
-                      .replace('í', 'i').replace('ó', 'o').replace('ú', 'u')
-                      .replace('â', 'a').replace('ê', 'e').replace('ô', 'o')
-                      .replace('à', 'a').replace('õ', 'o').replace('ü', 'u'))
-        
-        # Quebra o texto em linhas
-        words = description.split(' ')
-        line = ""
-        for word in words:
-            if pdf.get_string_width(line + word + " ") < 180:
-                line += word + " "
-            else:
-                pdf.cell(0, 5, line.strip(), 0, 1, 'L')
-                line = word + " "
-        if line:
-            pdf.cell(0, 5, line.strip(), 0, 1, 'L')
-        
         pdf.ln(10)
         
         # Perfil DISC
@@ -1313,15 +1292,15 @@ def generate_pdf_report(results):
         pdf.ln(5)
         
         disc_descriptions = {
-            "D": ("Dominancia", "Orientacao para resultados, lideranca direta"),
-            "I": ("Influencia", "Comunicacao persuasiva, networking"),
-            "S": ("Estabilidade", "Cooperacao, paciencia, trabalho em equipe"),
-            "C": ("Conformidade", "Foco em qualidade, precisao, analise")
+            "D": "Dominancia - Orientacao para resultados",
+            "I": "Influencia - Comunicacao e networking", 
+            "S": "Estabilidade - Cooperacao e paciencia",
+            "C": "Conformidade - Qualidade e precisao"
         }
         
         pdf.set_font('Arial', '', 10)
         for key, value in results['disc'].items():
-            name, description = disc_descriptions[key]
+            description = disc_descriptions[key]
             
             if value >= 35:
                 level = "Alto"
@@ -1331,11 +1310,8 @@ def generate_pdf_report(results):
                 level = "Baixo"
             
             pdf.set_font('Arial', 'B', 11)
-            pdf.cell(0, 6, f"{name} ({key}): {value:.0f}% - Nivel {level}", 0, 1, 'L')
-            
-            pdf.set_font('Arial', '', 9)
-            pdf.cell(0, 5, f"  {description}", 0, 1, 'L')
-            pdf.ln(2)
+            pdf.cell(0, 6, f"{description}: {value:.0f}% - Nivel {level}", 0, 1, 'L')
+            pdf.ln(3)
         
         pdf.ln(10)
         
@@ -1348,7 +1324,8 @@ def generate_pdf_report(results):
             "Lideranca natural e orientacao para resultados",
             "Capacidade de tomar decisoes rapidamente", 
             "Foco em eficiencia e produtividade",
-            "Habilidade de motivar equipes"
+            "Habilidade de motivar equipes",
+            "Comunicacao clara e direta"
         ]
         
         pdf.set_font('Arial', '', 10)
@@ -1382,9 +1359,10 @@ def generate_pdf_report(results):
         
         careers = [
             "Gerente ou Diretor Executivo",
-            "Consultor Empresarial",
+            "Consultor Empresarial", 
             "Empreendedor ou Fundador",
-            "Lider de Projetos Estrategicos"
+            "Lider de Projetos Estrategicos",
+            "Coordenador de Equipes"
         ]
         
         pdf.set_font('Arial', '', 10)
@@ -1398,15 +1376,121 @@ def generate_pdf_report(results):
         pdf.cell(0, 5, 'Relatorio gerado pelo NeuroMap Pro', 0, 1, 'C')
         pdf.cell(0, 5, f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}', 0, 1, 'C')
         
-        # Gera o PDF como bytes
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
-        return pdf_bytes
+        # Gera o PDF e converte para bytes corretamente
+        pdf_output = pdf.output(dest='S')
+        
+        # Verifica o tipo e converte adequadamente
+        if isinstance(pdf_output, str):
+            # Se for string, codifica para bytes
+            return pdf_output.encode('latin1')
+        elif isinstance(pdf_output, bytearray):
+            # Se for bytearray, converte para bytes
+            return bytes(pdf_output)
+        else:
+            # Se já for bytes, retorna diretamente
+            return pdf_output
         
     except ImportError:
         st.error("❌ Biblioteca FPDF não instalada. Execute: pip install fpdf2")
         return None
     except Exception as e:
         st.error(f"❌ Erro ao gerar PDF: {str(e)}")
+        return None
+
+def generate_text_report(results):
+    """Alternativa: Gera relatório em texto simples para download"""
+    
+    try:
+        # Cabeçalho
+        report = "NEUROMAP PRO - RELATORIO DE PERSONALIDADE\n"
+        report += "=" * 50 + "\n\n"
+        
+        # Informações gerais
+        report += "INFORMACOES GERAIS:\n"
+        report += f"Usuario: {st.session_state.user_email}\n"
+        report += f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+        report += f"Tempo de conclusao: {results['completion_time']} minutos\n"
+        report += f"Total de questoes: {results['total_questions']}\n"
+        report += f"Confiabilidade: {results['reliability']}%\n"
+        report += f"Tipo MBTI: {results['mbti_type']}\n\n"
+        
+        # Perfil DISC
+        report += "PERFIL DISC DETALHADO:\n"
+        report += "-" * 25 + "\n"
+        
+        disc_descriptions = {
+            "D": "Dominancia - Orientacao para resultados",
+            "I": "Influencia - Comunicacao e networking",
+            "S": "Estabilidade - Cooperacao e paciencia", 
+            "C": "Conformidade - Qualidade e precisao"
+        }
+        
+        for key, value in results['disc'].items():
+            description = disc_descriptions[key]
+            if value >= 35:
+                level = "Alto"
+            elif value >= 20:
+                level = "Moderado"
+            else:
+                level = "Baixo"
+            
+            report += f"{description}: {value:.0f}% (Nivel {level})\n"
+        
+        report += "\n"
+        
+        # Pontos fortes
+        report += "PONTOS FORTES IDENTIFICADOS:\n"
+        report += "-" * 30 + "\n"
+        strengths = [
+            "Lideranca natural e orientacao para resultados",
+            "Capacidade de tomar decisoes rapidamente",
+            "Foco em eficiencia e produtividade", 
+            "Habilidade de motivar equipes",
+            "Comunicacao clara e direta"
+        ]
+        
+        for i, strength in enumerate(strengths, 1):
+            report += f"{i}. {strength}\n"
+        
+        report += "\n"
+        
+        # Áreas de desenvolvimento
+        report += "AREAS PARA DESENVOLVIMENTO:\n"
+        report += "-" * 30 + "\n"
+        development_areas = [
+            "Desenvolver paciencia com processos mais lentos",
+            "Melhorar escuta ativa e empatia",
+            "Praticar delegacao efetiva",
+            "Equilibrar assertividade com colaboracao"
+        ]
+        
+        for i, area in enumerate(development_areas, 1):
+            report += f"{i}. {area}\n"
+        
+        report += "\n"
+        
+        # Carreiras sugeridas
+        report += "CARREIRAS SUGERIDAS:\n"
+        report += "-" * 20 + "\n"
+        careers = [
+            "Gerente ou Diretor Executivo",
+            "Consultor Empresarial",
+            "Empreendedor ou Fundador", 
+            "Lider de Projetos Estrategicos",
+            "Coordenador de Equipes"
+        ]
+        
+        for i, career in enumerate(careers, 1):
+            report += f"{i}. {career}\n"
+        
+        report += "\n" + "=" * 50 + "\n"
+        report += f"Relatorio gerado em {datetime.now().strftime('%d/%m/%Y as %H:%M')}\n"
+        report += "NeuroMap Pro - Analise Cientifica de Personalidade\n"
+        
+        return report.encode('utf-8')
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao gerar relatório: {str(e)}")
         return None
 
 
