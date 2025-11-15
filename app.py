@@ -6,9 +6,6 @@ import json
 import random
 import time
 import requests
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # Configuração da página
 st.set_page_config(
@@ -415,10 +412,10 @@ def firebase_reset_password(email):
         return False, f"Erro de conexão: {str(e)}"
 
 def save_assessment_to_firebase(user_id, results):
-    """Salva avaliação no Firebase com logs detalhados"""
+    """Salva avaliação no Firebase com método simplificado"""
     
     if not FIREBASE_PROJECT_ID:
-        st.error("❌ FIREBASE_PROJECT_ID não configurado nos secrets")
+        st.error("❌ FIREBASE_PROJECT_ID não configurado")
         return False
     
     if not user_id:
@@ -426,6 +423,7 @@ def save_assessment_to_firebase(user_id, results):
         return False
     
     try:
+        # URL simplificada sem autenticação
         url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/assessments/{user_id}.json"
         
         data = {
@@ -433,38 +431,31 @@ def save_assessment_to_firebase(user_id, results):
             "timestamp": datetime.now().isoformat(),
             "user_id": user_id,
             "user_email": st.session_state.user_email,
-            "version": "2.0",
-            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "version": "3.0"
         }
         
-        st.info(f"🔄 Tentando salvar em: {url}")
-        st.info(f"📊 Dados: {len(str(data))} caracteres")
+        st.write(f"🔄 **Salvando em:** {url}")
+        st.write(f"📊 **Dados:** {len(str(data))} caracteres")
         
-        response = requests.put(url, json=data, timeout=15)
+        # Usando requests.put sem autenticação (Firebase public rules)
+        response = requests.put(url, json=data, timeout=20)
         
-        st.info(f"📡 Status HTTP: {response.status_code}")
+        st.write(f"📡 **Status HTTP:** {response.status_code}")
+        st.write(f"📄 **Response:** {response.text}")
         
         if response.status_code == 200:
-            response_data = response.json()
-            st.success(f"✅ Salvo no Firebase! Response: {response_data}")
+            st.success("✅ Dados salvos no Firebase com sucesso!")
             return True
         else:
-            st.error(f"❌ Erro HTTP {response.status_code}")
-            st.error(f"Response: {response.text}")
+            st.error(f"❌ Erro HTTP {response.status_code}: {response.text}")
             return False
         
-    except requests.exceptions.Timeout:
-        st.error("❌ Timeout na conexão com Firebase")
-        return False
-    except requests.exceptions.ConnectionError:
-        st.error("❌ Erro de conexão com Firebase")
-        return False
     except Exception as e:
-        st.error(f"❌ Erro inesperado: {str(e)}")
+        st.error(f"❌ Erro ao salvar: {str(e)}")
         return False
 
 def load_assessment_from_firebase(user_id):
-    """Carrega avaliação do Firebase com logs detalhados"""
+    """Carrega avaliação do Firebase"""
     
     if not FIREBASE_PROJECT_ID or not user_id:
         return None
@@ -472,20 +463,20 @@ def load_assessment_from_firebase(user_id):
     try:
         url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/assessments/{user_id}.json"
         
-        st.info(f"🔄 Carregando de: {url}")
+        st.write(f"🔄 **Carregando de:** {url}")
         
         response = requests.get(url, timeout=10)
         
-        st.info(f"📡 Status HTTP: {response.status_code}")
+        st.write(f"📡 **Status HTTP:** {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
             
             if data and "results" in data:
-                st.success(f"✅ Dados carregados! Timestamp: {data.get('timestamp', 'N/A')}")
+                st.success(f"✅ Dados encontrados! Timestamp: {data.get('timestamp', 'N/A')}")
                 return data["results"]
             else:
-                st.info("📭 Nenhuma avaliação salva encontrada")
+                st.info("📭 Nenhuma avaliação anterior encontrada")
                 return None
         else:
             st.warning(f"⚠️ Erro ao carregar: {response.status_code}")
@@ -496,32 +487,38 @@ def load_assessment_from_firebase(user_id):
         return None
 
 def test_firebase_connection():
-    """Testa conexão com Firebase Realtime Database"""
+    """Testa conexão com Firebase"""
     
     if not FIREBASE_PROJECT_ID:
         st.error("❌ FIREBASE_PROJECT_ID não configurado")
         return False
     
     try:
+        # Testa acesso básico
         url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/.json"
         
-        st.info(f"🧪 Testando: {url}")
+        st.write(f"🧪 **Testando:** {url}")
         
         response = requests.get(url, timeout=10)
         
-        st.info(f"📡 Status: {response.status_code}")
+        st.write(f"📡 **Status:** {response.status_code}")
+        st.write(f"📄 **Response:** {response.text}")
         
         if response.status_code == 200:
             st.success("✅ Firebase acessível!")
             
+            # Testa escrita
             test_url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/test.json"
             test_data = {"test": "connection", "timestamp": datetime.now().isoformat()}
             
             write_response = requests.put(test_url, json=test_data, timeout=10)
             
+            st.write(f"📝 **Teste de escrita:** {write_response.status_code}")
+            
             if write_response.status_code == 200:
-                st.success("✅ Escrita no Firebase OK!")
+                st.success("✅ Escrita funcionando!")
                 
+                # Remove o teste
                 requests.delete(test_url, timeout=10)
                 return True
             else:
@@ -677,279 +674,54 @@ def calculate_results():
         "response_variance": round(response_variance, 2),
         "answered_questions": len(answers)
     }
-    
-    # Debug info
-    st.info(f"🔍 **Debug:** DISC calculado: {disc_scores}")
-    st.info(f"🔍 **MBTI:** {mbti_type} | **Confiabilidade:** {reliability}%")
 
-def create_disc_charts(results):
-    """Cria gráficos interativos para análise DISC"""
+def create_simple_charts():
+    """Cria gráficos simples sem Plotly"""
+    
+    results = st.session_state.get('results')
+    if not results:
+        return
     
     disc_scores = results['disc']
     
-    # 1. Gráfico de Barras DISC
-    fig_bar = go.Figure(data=[
-        go.Bar(
-            x=list(disc_scores.keys()),
-            y=list(disc_scores.values()),
-            text=[f'{score:.1f}%' for score in disc_scores.values()],
-            textposition='auto',
-            marker_color=['#e74c3c', '#f39c12', '#27ae60', '#3498db'],
-            marker_line_color='white',
-            marker_line_width=2
-        )
-    ])
+    # Gráfico de barras simples
+    st.markdown("### 📊 Perfil DISC")
     
-    fig_bar.update_layout(
-        title={
-            'text': '📊 Perfil DISC - Distribuição por Dimensão',
-            'x': 0.5,
-            'xanchor': 'center',
-            'font': {'size': 18, 'color': '#ffffff'}
-        },
-        xaxis_title='Dimensões DISC',
-        yaxis_title='Percentual (%)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(30, 41, 59, 0.95)',
-        font={'color': '#ffffff'},
-        height=400,
-        showlegend=False
-    )
+    for dim, score in disc_scores.items():
+        # Determina cor baseada no score
+        if score >= 35:
+            color = "#48bb78"  # Verde
+        elif score >= 25:
+            color = "#ed8936"  # Laranja  
+        else:
+            color = "#e53e3e"  # Vermelho
+            
+        # Cria barra visual
+        bar_width = int((score / 100) * 50)  # Max 50 caracteres
+        bar = "█" * bar_width + "░" * (50 - bar_width)
+        
+        st.markdown(f"""
+        <div style="background: {color}20; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; 
+                    border-left: 4px solid {color};">
+            <strong>{dim}: {score:.1f}%</strong><br>
+            <div style="font-family: monospace; font-size: 0.8rem;">
+                {bar}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    fig_bar.update_xaxis(
-        tickfont={'size': 14, 'color': '#ffffff'},
-        title_font={'size': 14, 'color': '#ffffff'}
-    )
+    # Métricas adicionais
+    col1, col2, col3 = st.columns(3)
     
-    fig_bar.update_yaxis(
-        tickfont={'size': 12, 'color': '#ffffff'},
-        title_font={'size': 14, 'color': '#ffffff'},
-        range=[0, max(disc_scores.values()) * 1.2]
-    )
+    with col1:
+        dominant = max(disc_scores, key=disc_scores.get)
+        st.metric("🎯 Perfil Dominante", dominant, f"{disc_scores[dominant]:.0f}%")
     
-    # 2. Gráfico Pizza DISC
-    fig_pie = go.Figure(data=[
-        go.Pie(
-            labels=['Dominância', 'Influência', 'Estabilidade', 'Conformidade'],
-            values=list(disc_scores.values()),
-            hole=0.4,
-            marker_colors=['#e74c3c', '#f39c12', '#27ae60', '#3498db'],
-            textinfo='label+percent',
-            textfont={'size': 12, 'color': 'white'},
-            hovertemplate='<b>%{label}</b><br>%{value:.1f}%<extra></extra>'
-        )
-    ])
+    with col2:
+        st.metric("🧠 Tipo MBTI", results['mbti_type'])
     
-    fig_pie.update_layout(
-        title={
-            'text': '🎯 Distribuição Percentual DISC',
-            'x': 0.5,
-            'xanchor': 'center',
-            'font': {'size': 18, 'color': '#ffffff'}
-        },
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(30, 41, 59, 0.95)',
-        font={'color': '#ffffff'},
-        height=400,
-        showlegend=True,
-        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': -0.2, 'font': {'color': '#ffffff'}}
-    )
-    
-    # 3. Gráfico Radar DISC
-    categories = ['Dominância', 'Influência', 'Estabilidade', 'Conformidade']
-    values = list(disc_scores.values())
-    
-    fig_radar = go.Figure()
-    
-    fig_radar.add_trace(go.Scatterpolar(
-        r=values,
-        theta=categories,
-        fill='toself',
-        name='Seu Perfil',
-        line_color='#3498db',
-        fillcolor='rgba(52, 152, 219, 0.3)',
-        marker={'size': 8, 'color': '#2980b9'}
-    ))
-    
-    average_values = [25, 25, 25, 25]
-    fig_radar.add_trace(go.Scatterpolar(
-        r=average_values,
-        theta=categories,
-        fill='toself',
-        name='Perfil Equilibrado',
-        line_color='#95a5a6',
-        fillcolor='rgba(149, 165, 166, 0.1)',
-        line_dash='dash',
-        marker={'size': 6, 'color': '#7f8c8d'}
-    ))
-    
-    fig_radar.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, max(max(values), 50)],
-                tickfont={'color': '#ffffff'},
-                gridcolor='#4a5568'
-            ),
-            angularaxis=dict(
-                tickfont={'size': 12, 'color': '#ffffff'},
-                gridcolor='#4a5568'
-            )
-        ),
-        title={
-            'text': '🎭 Radar DISC - Comparação com Perfil Equilibrado',
-            'x': 0.5,
-            'xanchor': 'center',
-            'font': {'size': 18, 'color': '#ffffff'}
-        },
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(30, 41, 59, 0.95)',
-        font={'color': '#ffffff'},
-        height=500,
-        showlegend=True,
-        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': -0.1, 'font': {'color': '#ffffff'}}
-    )
-    
-    # 4. Gráfico de Confiabilidade
-    reliability = results['reliability']
-    
-    fig_gauge = go.Figure(go.Indicator(
-        mode = "gauge+number+delta",
-        value = reliability,
-        domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': "🎯 Confiabilidade da Avaliação", 'font': {'size': 18, 'color': '#ffffff'}},
-        delta = {'reference': 80, 'increasing': {'color': "#27ae60"}, 'decreasing': {'color': "#e74c3c"}},
-        gauge = {
-            'axis': {'range': [None, 100], 'tickcolor': '#ffffff'},
-            'bar': {'color': "#3498db"},
-            'steps': [
-                {'range': [0, 60], 'color': "#e74c3c"},
-                {'range': [60, 80], 'color': "#f39c12"},
-                {'range': [80, 100], 'color': "#27ae60"}
-            ],
-            'threshold': {
-                'line': {'color': "#e74c3c", 'width': 4},
-                'thickness': 0.75,
-                'value': 90
-            }
-        }
-    ))
-    
-    fig_gauge.update_layout(
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(30, 41, 59, 0.95)',
-        height=400,
-        font={'color': '#ffffff'}
-    )
-    
-    return fig_bar, fig_pie, fig_radar, fig_gauge
-
-def create_mbti_visualization(mbti_type):
-    """Cria visualização do tipo MBTI"""
-    
-    dimensions = {
-        'Energia': 'Extroversão' if mbti_type[0] == 'E' else 'Introversão',
-        'Informação': 'Sensação' if mbti_type[1] == 'S' else 'Intuição', 
-        'Decisão': 'Pensamento' if mbti_type[2] == 'T' else 'Sentimento',
-        'Organização': 'Julgamento' if mbti_type[3] == 'J' else 'Percepção'
-    }
-    
-    colors = {
-        'Extroversão': '#e74c3c', 'Introversão': '#3498db',
-        'Sensação': '#f39c12', 'Intuição': '#9b59b6',
-        'Pensamento': '#27ae60', 'Sentimento': '#e67e22',
-        'Julgamento': '#34495e', 'Percepção': '#16a085'
-    }
-    
-    fig_mbti = go.Figure()
-    
-    for i, (dim, pref) in enumerate(dimensions.items()):
-        fig_mbti.add_trace(go.Bar(
-            y=[dim],
-            x=[1],
-            orientation='h',
-            name=pref,
-            marker_color=colors[pref],
-            text=pref,
-            textposition='middle center',
-            textfont={'size': 14, 'color': 'white'},
-            hovertemplate=f'<b>{dim}</b><br>{pref}<extra></extra>'
-        ))
-    
-    fig_mbti.update_layout(
-        title={
-            'text': f'🧠 Tipo MBTI: {mbti_type}',
-            'x': 0.5,
-            'xanchor': 'center',
-            'font': {'size': 18, 'color': '#ffffff'}
-        },
-        xaxis={'visible': False},
-        yaxis={'tickfont': {'size': 12, 'color': '#ffffff'}},
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(30, 41, 59, 0.95)',
-        font={'color': '#ffffff'},
-        height=300,
-        showlegend=False,
-        margin={'l': 100, 'r': 50, 't': 80, 'b': 50}
-    )
-    
-    return fig_mbti
-
-def create_comparison_chart(results):
-    """Cria gráfico de comparação com perfis típicos"""
-    
-    typical_profiles = {
-        'Líder Executivo': {'D': 45, 'I': 25, 'S': 15, 'C': 15},
-        'Comunicador': {'D': 20, 'I': 45, 'S': 25, 'C': 10},
-        'Colaborador': {'D': 15, 'I': 25, 'S': 45, 'C': 15},
-        'Analista': {'D': 10, 'I': 15, 'S': 25, 'C': 50},
-        'Seu Perfil': results['disc']
-    }
-    
-    fig_comparison = go.Figure()
-    
-    dimensions = ['D', 'I', 'S', 'C']
-    colors = ['#e74c3c', '#f39c12', '#27ae60', '#3498db', '#9b59b6']
-    
-    for i, (profile_name, scores) in enumerate(typical_profiles.items()):
-        fig_comparison.add_trace(go.Scatterpolar(
-            r=[scores[dim] for dim in dimensions],
-            theta=dimensions,
-            fill='toself' if profile_name == 'Seu Perfil' else None,
-            name=profile_name,
-            line_color=colors[i],
-            fillcolor=f'rgba({int(colors[i][1:3], 16)}, {int(colors[i][3:5], 16)}, {int(colors[i][5:7], 16)}, 0.3)' if profile_name == 'Seu Perfil' else None,
-            line_width=3 if profile_name == 'Seu Perfil' else 2
-        ))
-    
-    fig_comparison.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 50],
-                tickfont={'color': '#ffffff'},
-                gridcolor='#4a5568'
-            ),
-            angularaxis=dict(
-                tickfont={'size': 12, 'color': '#ffffff'},
-                gridcolor='#4a5568'
-            )
-        ),
-        title={
-            'text': '📈 Comparação com Perfis Típicos',
-            'x': 0.5,
-            'xanchor': 'center',
-            'font': {'size': 18, 'color': '#ffffff'}
-        },
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(30, 41, 59, 0.95)',
-        font={'color': '#ffffff'},
-        height=500,
-        showlegend=True,
-        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': -0.2, 'font': {'color': '#ffffff'}}
-    )
-    
-    return fig_comparison
+    with col3:
+        st.metric("📈 Confiabilidade", f"{results['reliability']}%")
 
 def render_header():
     """Renderiza cabeçalho principal"""
@@ -1034,11 +806,7 @@ def render_auth_sidebar():
                             st.session_state.id_token = data.get('idToken', '')
                             st.session_state.current_page = 'dashboard'
                             
-                            existing_results = load_assessment_from_firebase(st.session_state.user_id)
-                            if existing_results:
-                                st.session_state.results = existing_results
-                                st.session_state.assessment_completed = True
-                            
+                            # Não carrega automaticamente para evitar logs
                             st.success("✅ Login realizado!")
                             time.sleep(1)
                             st.rerun()
@@ -1127,7 +895,7 @@ def render_login_required():
         - **48 questões científicas** balanceadas
         - **Análise DISC completa** detalhada
         - **Perfil comportamental** profundo
-        - **Gráficos interativos** avançados
+        - **Gráficos visuais** informativos
         - **Relatórios PDF** para download
         - **Dados salvos** na nuvem Firebase
         - **Histórico de avaliações** pessoal
@@ -1159,7 +927,7 @@ def render_dashboard():
         if st.button("🧪 Testar Conexão Firebase", key="test_firebase"):
             test_firebase_connection()
         
-        if st.button("🔄 Forçar Carregamento", key="force_load"):
+        if st.button("🔄 Carregar Dados", key="force_load"):
             if st.session_state.user_id:
                 existing_results = load_assessment_from_firebase(st.session_state.user_id)
                 if existing_results:
@@ -1168,17 +936,9 @@ def render_dashboard():
                     st.success("✅ Dados carregados!")
                     st.rerun()
         
-        if st.session_state.results and st.button("💾 Forçar Salvamento", key="force_save"):
+        if st.session_state.results and st.button("💾 Salvar Dados", key="force_save"):
             if save_assessment_to_firebase(st.session_state.user_id, st.session_state.results):
                 st.success("✅ Dados salvos!")
-    
-    # Carrega dados existentes automaticamente
-    if not st.session_state.results and st.session_state.user_id:
-        with st.spinner("🔄 Verificando dados salvos..."):
-            existing_results = load_assessment_from_firebase(st.session_state.user_id)
-            if existing_results:
-                st.session_state.results = existing_results
-                st.session_state.assessment_completed = True
     
     # Métricas principais
     col1, col2, col3, col4 = st.columns(4)
@@ -1354,8 +1114,9 @@ def render_assessment():
                 with st.spinner("🧠 Processando resultados..."):
                     calculate_results()
                     
+                    # Tenta salvar no Firebase
                     if st.session_state.user_id and st.session_state.results:
-                        st.info("💾 Salvando seus resultados...")
+                        st.write("💾 **Salvando seus resultados...**")
                         save_success = save_assessment_to_firebase(st.session_state.user_id, st.session_state.results)
                         
                         if save_success:
@@ -1434,7 +1195,7 @@ def render_single_question(question):
     st.markdown("---")
 
 def render_results():
-    """Renderiza página de resultados com gráficos"""
+    """Renderiza página de resultados"""
     
     st.title("🎉 Seus Resultados")
     
@@ -1473,40 +1234,8 @@ def render_results():
     
     st.markdown("---")
     
-    # Gráficos DISC
-    st.markdown("### 📊 Visualizações do Perfil DISC")
-    
-    # Cria os gráficos
-    fig_bar, fig_pie, fig_radar, fig_gauge = create_disc_charts(results)
-    
-    # Layout dos gráficos
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Barras", "🥧 Pizza", "🎭 Radar", "🎯 Confiabilidade"])
-    
-    with tab1:
-        st.plotly_chart(fig_bar, use_container_width=True)
-    
-    with tab2:
-        st.plotly_chart(fig_pie, use_container_width=True)
-    
-    with tab3:
-        st.plotly_chart(fig_radar, use_container_width=True)
-    
-    with tab4:
-        st.plotly_chart(fig_gauge, use_container_width=True)
-    
-    st.markdown("---")
-    
-    # Gráfico MBTI
-    st.markdown("### 🧠 Visualização MBTI")
-    fig_mbti = create_mbti_visualization(results['mbti_type'])
-    st.plotly_chart(fig_mbti, use_container_width=True)
-    
-    st.markdown("---")
-    
-    # Gráfico de Comparação
-    st.markdown("### 📈 Comparação com Perfis Típicos")
-    fig_comparison = create_comparison_chart(results)
-    st.plotly_chart(fig_comparison, use_container_width=True)
+    # Gráficos simples
+    create_simple_charts()
     
     st.markdown("---")
     
@@ -1595,51 +1324,26 @@ def render_results():
     # Botão de download
     st.markdown("---")
     
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("📄 Gerar Relatório PDF", key="generate_pdf", type="primary", use_container_width=True):
-            with st.spinner("📝 Gerando relatório PDF..."):
-                pdf_content = generate_pdf_report(results)
+    if st.button("📝 Gerar Relatório TXT", key="generate_txt", use_container_width=True):
+        with st.spinner("📝 Gerando relatório..."):
+            txt_content = generate_text_report(results)
+            
+            if txt_content is not None:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"NeuroMap_Relatorio_{timestamp}.txt"
                 
-                if pdf_content is not None:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"NeuroMap_Relatorio_{timestamp}.pdf"
-                    
-                    st.download_button(
-                        label="⬇️ Baixar PDF",
-                        data=pdf_content,
-                        file_name=filename,
-                        mime="application/pdf",
-                        key="download_pdf",
-                        use_container_width=True
-                    )
-                    
-                    st.success("🎉 PDF gerado com sucesso!")
-                else:
-                    st.error("❌ Erro ao gerar PDF")
-
-    with col2:
-        if st.button("📝 Gerar Relatório TXT", key="generate_txt", use_container_width=True):
-            with st.spinner("📝 Gerando relatório texto..."):
-                txt_content = generate_text_report(results)
+                st.download_button(
+                    label="⬇️ Baixar Relatório",
+                    data=txt_content,
+                    file_name=filename,
+                    mime="text/plain",
+                    key="download_txt",
+                    use_container_width=True
+                )
                 
-                if txt_content is not None:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"NeuroMap_Relatorio_{timestamp}.txt"
-                    
-                    st.download_button(
-                        label="⬇️ Baixar TXT",
-                        data=txt_content,
-                        file_name=filename,
-                        mime="text/plain",
-                        key="download_txt",
-                        use_container_width=True
-                    )
-                    
-                    st.success("🎉 Relatório texto gerado!")
-                else:
-                    st.error("❌ Erro ao gerar relatório")
+                st.success("🎉 Relatório gerado!")
+            else:
+                st.error("❌ Erro ao gerar relatório")
 
 def render_results_preview():
     """Preview dos resultados no dashboard"""
@@ -1876,168 +1580,6 @@ def generate_insights(dominant_disc, mbti_type, results):
         'development': development,
         'careers': careers
     }
-
-def generate_pdf_report(results):
-    """Gera relatório PDF com tratamento correto de tipos"""
-    
-    try:
-        from fpdf import FPDF
-        
-        class PDF(FPDF):
-            def header(self):
-                self.set_font('Arial', 'B', 15)
-                self.cell(0, 10, 'NeuroMap - Relatorio de Personalidade', 0, 1, 'C')
-                self.ln(10)
-            
-            def footer(self):
-                self.set_y(-15)
-                self.set_font('Arial', 'I', 8)
-                self.cell(0, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
-        
-        pdf = PDF()
-        pdf.add_page()
-        
-        # Título
-        pdf.set_font('Arial', 'B', 20)
-        pdf.ln(20)
-        pdf.cell(0, 15, 'RELATORIO DE PERSONALIDADE', 0, 1, 'C')
-        pdf.ln(10)
-        
-        # Informações básicas
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 8, 'INFORMACOES GERAIS', 0, 1, 'L')
-        pdf.ln(5)
-        
-        pdf.set_font('Arial', '', 10)
-        pdf.cell(0, 6, f"Usuario: {st.session_state.user_email}", 0, 1, 'L')
-        pdf.cell(0, 6, f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'L')
-        pdf.cell(0, 6, f"Tempo de conclusao: {results['completion_time']} minutos", 0, 1, 'L')
-        pdf.cell(0, 6, f"Total de questoes: {results['total_questions']}", 0, 1, 'L')
-        pdf.cell(0, 6, f"Confiabilidade: {results['reliability']}%", 0, 1, 'L')
-        pdf.ln(10)
-        
-        # Tipo MBTI
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 8, 'TIPO DE PERSONALIDADE MBTI', 0, 1, 'L')
-        pdf.ln(3)
-        
-        pdf.set_font('Arial', 'B', 16)
-        pdf.cell(0, 10, f"Tipo: {results['mbti_type']}", 0, 1, 'L')
-        pdf.ln(5)
-        
-        # Descrição MBTI
-        mbti_descriptions = get_mbti_description(results['mbti_type'])
-        pdf.set_font('Arial', '', 10)
-        pdf.cell(0, 6, f"Perfil: {mbti_descriptions['title']}", 0, 1, 'L')
-        pdf.ln(10)
-        
-        # Perfil DISC
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 8, 'PERFIL DISC DETALHADO', 0, 1, 'L')
-        pdf.ln(5)
-        
-        disc_descriptions = {
-            "D": "Dominancia - Orientacao para resultados",
-            "I": "Influencia - Comunicacao e networking", 
-            "S": "Estabilidade - Cooperacao e paciencia",
-            "C": "Conformidade - Qualidade e precisao"
-        }
-        
-        pdf.set_font('Arial', '', 10)
-        for key, value in results['disc'].items():
-            description = disc_descriptions[key]
-            
-            if value >= 35:
-                level = "Alto"
-            elif value >= 20:
-                level = "Moderado"
-            else:
-                level = "Baixo"
-            
-            pdf.set_font('Arial', 'B', 11)
-            pdf.cell(0, 6, f"{description}: {value:.0f}% - Nivel {level}", 0, 1, 'L')
-            pdf.ln(3)
-        
-        pdf.ln(10)
-        
-        # Pontos Fortes
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 8, 'PONTOS FORTES IDENTIFICADOS', 0, 1, 'L')
-        pdf.ln(5)
-        
-        strengths = [
-            "Lideranca natural e orientacao para resultados",
-            "Capacidade de tomar decisoes rapidamente", 
-            "Foco em eficiencia e produtividade",
-            "Habilidade de motivar equipes",
-            "Comunicacao clara e direta"
-        ]
-        
-        pdf.set_font('Arial', '', 10)
-        for i, strength in enumerate(strengths, 1):
-            pdf.cell(0, 6, f"{i}. {strength}", 0, 1, 'L')
-        
-        pdf.ln(10)
-        
-        # Áreas de Desenvolvimento
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 8, 'AREAS PARA DESENVOLVIMENTO', 0, 1, 'L')
-        pdf.ln(5)
-        
-        development_areas = [
-            "Desenvolver paciencia com processos mais lentos",
-            "Melhorar escuta ativa e empatia",
-            "Praticar delegacao efetiva",
-            "Equilibrar assertividade com colaboracao"
-        ]
-        
-        pdf.set_font('Arial', '', 10)
-        for i, area in enumerate(development_areas, 1):
-            pdf.cell(0, 6, f"{i}. {area}", 0, 1, 'L')
-        
-        pdf.ln(10)
-        
-        # Carreiras Sugeridas
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 8, 'CARREIRAS SUGERIDAS', 0, 1, 'L')
-        pdf.ln(5)
-        
-        careers = [
-            "Gerente ou Diretor Executivo",
-            "Consultor Empresarial", 
-            "Empreendedor ou Fundador",
-            "Lider de Projetos Estrategicos",
-            "Coordenador de Equipes"
-        ]
-        
-        pdf.set_font('Arial', '', 10)
-        for i, career in enumerate(careers, 1):
-            pdf.cell(0, 6, f"{i}. {career}", 0, 1, 'L')
-        
-        pdf.ln(15)
-        
-        # Rodapé
-        pdf.set_font('Arial', 'I', 8)
-        pdf.cell(0, 5, 'Relatorio gerado pelo NeuroMap Pro', 0, 1, 'C')
-        pdf.cell(0, 5, f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}', 0, 1, 'C')
-        
-        # Gera o PDF e converte para bytes corretamente
-        pdf_output = pdf.output(dest='S')
-        
-        # Verifica o tipo e converte adequadamente
-        if isinstance(pdf_output, str):
-            return pdf_output.encode('latin1')
-        elif isinstance(pdf_output, bytearray):
-            return bytes(pdf_output)
-        else:
-            return pdf_output
-        
-    except ImportError:
-        st.error("❌ Biblioteca FPDF não instalada. Execute: pip install fpdf2")
-        return None
-    except Exception as e:
-        st.error(f"❌ Erro ao gerar PDF: {str(e)}")
-        return None
 
 def generate_text_report(results):
     """Gera relatório em texto simples para download"""
