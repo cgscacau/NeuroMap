@@ -1230,9 +1230,8 @@ def generate_insights(dominant_disc, mbti_type, results):
     }
     
     return insights
-
 def generate_pdf_report(results):
-    """Gera relatório PDF"""
+    """Gera relatório PDF com suporte a caracteres especiais"""
     
     try:
         from fpdf import FPDF
@@ -1258,45 +1257,209 @@ def generate_pdf_report(results):
         pdf.ln(10)
         
         # Informações básicas
-        pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 8, f"Usuario Firebase: {st.session_state.user_email}", 0, 1, 'L')
-        pdf.cell(0, 8, f"Tipo MBTI: {results['mbti_type']}", 0, 1, 'L')
-        pdf.cell(0, 8, f"Confiabilidade: {results['reliability']}%", 0, 1, 'L')
-        pdf.cell(0, 8, f"Data: {datetime.now().strftime('%d/%m/%Y')}", 0, 1, 'L')
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, 'INFORMACOES GERAIS', 0, 1, 'L')
+        pdf.ln(5)
+        
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(0, 6, f"Usuario: {st.session_state.user_email}", 0, 1, 'L')
+        pdf.cell(0, 6, f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'L')
+        pdf.cell(0, 6, f"Tempo de conclusao: {results['completion_time']} minutos", 0, 1, 'L')
+        pdf.cell(0, 6, f"Total de questoes: {results['total_questions']}", 0, 1, 'L')
+        pdf.cell(0, 6, f"Confiabilidade: {results['reliability']}%", 0, 1, 'L')
+        pdf.ln(10)
+        
+        # Tipo MBTI
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 8, 'TIPO DE PERSONALIDADE MBTI', 0, 1, 'L')
+        pdf.ln(3)
+        
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, f"Tipo: {results['mbti_type']}", 0, 1, 'L')
+        pdf.ln(5)
+        
+        # Descrição MBTI
+        mbti_descriptions = get_mbti_description(results['mbti_type'])
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(0, 6, f"Perfil: {mbti_descriptions['title']}", 0, 1, 'L')
+        pdf.ln(3)
+        
+        # Quebra texto da descrição
+        description = mbti_descriptions['description']
+        # Remove acentos e caracteres especiais
+        description = description.replace('ã', 'a').replace('ç', 'c').replace('é', 'e')
+        description = description.replace('í', 'i').replace('ó', 'o').replace('ú', 'u')
+        description = description.replace('â', 'a').replace('ê', 'e').replace('ô', 'o')
+        
+        # Quebra o texto em linhas
+        words = description.split(' ')
+        line = ""
+        for word in words:
+            if pdf.get_string_width(line + word + " ") < 180:
+                line += word + " "
+            else:
+                pdf.cell(0, 5, line.strip(), 0, 1, 'L')
+                line = word + " "
+        if line:
+            pdf.cell(0, 5, line.strip(), 0, 1, 'L')
+        
         pdf.ln(10)
         
         # Perfil DISC
         pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 10, 'PERFIL DISC:', 0, 1, 'L')
-        pdf.set_font('Arial', '', 12)
+        pdf.cell(0, 8, 'PERFIL DISC DETALHADO', 0, 1, 'L')
+        pdf.ln(5)
         
+        # Descrições DISC
+        disc_descriptions = {
+            "D": ("Dominancia", "Orientacao para resultados, lideranca direta, tomada de decisao rapida"),
+            "I": ("Influencia", "Comunicacao persuasiva, networking, motivacao de equipes"),
+            "S": ("Estabilidade", "Cooperacao, paciencia, trabalho em equipe consistente"),
+            "C": ("Conformidade", "Foco em qualidade, precisao, analise sistematica")
+        }
+        
+        pdf.set_font('Arial', '', 10)
         for key, value in results['disc'].items():
-            pdf.cell(0, 6, f"{key}: {value:.1f}%", 0, 1, 'L')
+            name, description = disc_descriptions[key]
+            
+            # Determina nível
+            if value >= 35:
+                level = "Alto"
+            elif value >= 20:
+                level = "Moderado"
+            else:
+                level = "Baixo"
+            
+            pdf.set_font('Arial', 'B', 11)
+            pdf.cell(0, 6, f"{name} ({key}): {value:.0f}% - Nivel {level}", 0, 1, 'L')
+            
+            pdf.set_font('Arial', '', 9)
+            pdf.cell(0, 5, f"  {description}", 0, 1, 'L')
+            pdf.ln(2)
         
         pdf.ln(10)
         
-        # Insights
+        # Pontos Fortes
         pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 10, 'PRINCIPAIS PONTOS FORTES:', 0, 1, 'L')
-        pdf.set_font('Arial', '', 11)
+        pdf.cell(0, 8, 'PONTOS FORTES IDENTIFICADOS', 0, 1, 'L')
+        pdf.ln(5)
         
         strengths = [
-            'Lideranca natural e orientacao para resultados',
-            'Capacidade de tomar decisoes rapidamente', 
-            'Foco em eficiencia e produtividade',
-            'Habilidade de motivar equipes'
+            "Lideranca natural e orientacao para resultados",
+            "Capacidade de tomar decisoes rapidamente", 
+            "Foco em eficiencia e produtividade",
+            "Habilidade de motivar equipes",
+            "Comunicacao clara e direta",
+            "Orientacao para objetivos e metas"
         ]
         
-        for strength in strengths:
-            pdf.cell(0, 6, f"• {strength}", 0, 1, 'L')
+        pdf.set_font('Arial', '', 10)
+        for i, strength in enumerate(strengths, 1):
+            pdf.cell(0, 6, f"{i}. {strength}", 0, 1, 'L')
+        
+        pdf.ln(10)
+        
+        # Áreas de Desenvolvimento
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 8, 'AREAS PARA DESENVOLVIMENTO', 0, 1, 'L')
+        pdf.ln(5)
+        
+        development_areas = [
+            "Desenvolver paciencia com processos mais lentos",
+            "Melhorar escuta ativa e empatia",
+            "Praticar delegacao efetiva",
+            "Equilibrar assertividade com colaboracao",
+            "Aprimorar habilidades de feedback construtivo",
+            "Desenvolver maior flexibilidade em mudancas"
+        ]
+        
+        pdf.set_font('Arial', '', 10)
+        for i, area in enumerate(development_areas, 1):
+            pdf.cell(0, 6, f"{i}. {area}", 0, 1, 'L')
+        
+        pdf.ln(10)
+        
+        # Carreiras Sugeridas
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 8, 'CARREIRAS SUGERIDAS', 0, 1, 'L')
+        pdf.ln(5)
+        
+        careers = [
+            "Gerente ou Diretor Executivo",
+            "Consultor Empresarial",
+            "Empreendedor ou Fundador de Startup",
+            "Lider de Projetos Estrategicos",
+            "Coordenador de Equipes",
+            "Analista de Negocios Senior"
+        ]
+        
+        pdf.set_font('Arial', '', 10)
+        for i, career in enumerate(careers, 1):
+            pdf.cell(0, 6, f"{i}. {career}", 0, 1, 'L')
+        
+        # Nova página para recomendações
+        pdf.add_page()
+        
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'RECOMENDACOES PERSONALIZADAS', 0, 1, 'L')
+        pdf.ln(10)
+        
+        # Recomendações baseadas no perfil dominante
+        dominant_disc = max(results['disc'], key=results['disc'].get)
+        
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, f'Baseado no seu perfil dominante: {dominant_disc}', 0, 1, 'L')
+        pdf.ln(5)
+        
+        recommendations = {
+            'D': [
+                "Busque posicoes de lideranca e tomada de decisao",
+                "Desenvolva paciencia para ouvir diferentes perspectivas",
+                "Pratique delegacao efetiva de tarefas",
+                "Equilibre assertividade com colaboracao"
+            ],
+            'I': [
+                "Explore oportunidades de networking e relacionamento",
+                "Desenvolva habilidades de apresentacao publica",
+                "Pratique escuta ativa em conversas",
+                "Balance entusiasmo com analise critica"
+            ],
+            'S': [
+                "Valorize sua capacidade de trabalho em equipe",
+                "Desenvolva confianca para expressar opiniao",
+                "Pratique adaptacao a mudancas graduais",
+                "Explore papeis de suporte e mentoria"
+            ],
+            'C': [
+                "Valorize sua atencao aos detalhes e precisao",
+                "Desenvolva habilidades de comunicacao interpessoal",
+                "Pratique tomada de decisao com informacao limitada",
+                "Explore papeis de analise e consultoria"
+            ]
+        }
+        
+        pdf.set_font('Arial', '', 10)
+        for i, rec in enumerate(recommendations.get(dominant_disc, []), 1):
+            pdf.cell(0, 6, f"{i}. {rec}", 0, 1, 'L')
+        
+        pdf.ln(10)
+        
+        # Rodapé informativo
+        pdf.set_font('Arial', 'I', 8)
+        pdf.cell(0, 5, 'Este relatorio foi gerado pelo NeuroMap Pro - Analise Cientifica de Personalidade', 0, 1, 'C')
+        pdf.cell(0, 5, f'Gerado em {datetime.now().strftime("%d/%m/%Y as %H:%M")}', 0, 1, 'C')
         
         # Converte para bytes
         pdf_output = pdf.output(dest='S')
         return pdf_output.encode('latin1') if isinstance(pdf_output, str) else pdf_output
         
+    except ImportError:
+        st.error("❌ Biblioteca FPDF não instalada. Execute: pip install fpdf2")
+        return b"Erro: FPDF nao instalada"
     except Exception as e:
-        st.error(f"Erro ao gerar PDF: {e}")
+        st.error(f"❌ Erro ao gerar PDF: {e}")
         return b"Erro na geracao do PDF"
+
 
 def main():
     """Função principal"""
