@@ -930,7 +930,7 @@ def render_dashboard():
                 st.write(f"**Confiabilidade**: {st.session_state.results['reliability']}%")
 
 def render_assessment():
-    """Página de avaliação"""
+    """Página de avaliação com navegação no final"""
     
     if st.session_state.selected_questions is None:
         st.session_state.selected_questions = generate_random_questions(48)
@@ -945,8 +945,8 @@ def render_assessment():
     total_pages = (total_questions + questions_per_page - 1) // questions_per_page
     current_page = st.session_state.question_page
     
-    # Progress geral
-    answered = len([k for k, v in st.session_state.assessment_answers.items() if v > 0])
+    # Progress geral (no topo)
+    answered = len([k for k, v in st.session_state.assessment_answers.items() if v != 3])  # Não conta neutros
     progress = answered / total_questions if total_questions > 0 else 0
     
     col1, col2, col3, col4 = st.columns(4)
@@ -966,6 +966,9 @@ def render_assessment():
     
     st.markdown("---")
     
+    # Indicador de página atual (simples)
+    st.markdown(f"### 📄 Página {current_page + 1} de {total_pages}")
+    
     # Progress da página atual
     current_page_start = current_page * questions_per_page
     current_page_end = min(current_page_start + questions_per_page, total_questions)
@@ -974,39 +977,17 @@ def render_assessment():
     page_answered = 0
     for i in current_page_questions:
         q = questions[i]
-        if q['display_id'] in st.session_state.assessment_answers:
+        answer = st.session_state.assessment_answers.get(q['display_id'], 3)
+        if answer != 3:  # Não conta neutros
             page_answered += 1
     
     page_progress = page_answered / len(current_page_questions) if len(current_page_questions) > 0 else 0
     
-    st.info(f"📄 **Página {current_page + 1}:** {page_answered}/{len(current_page_questions)} questões respondidas ({page_progress:.1%})")
-    
-    if page_progress == 1.0 and current_page < total_pages - 1:
-        st.success("✅ **Página completa!** Responda a última questão para avançar automaticamente.")
+    st.info(f"📋 **Esta página:** {page_answered}/{len(current_page_questions)} questões respondidas ({page_progress:.1%})")
     
     st.markdown("---")
     
-    # Navegação por páginas
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col1:
-        if current_page > 0:
-            if st.button("⬅️ Anterior", key="prev_page", use_container_width=True):
-                st.session_state.question_page = current_page - 1
-                st.rerun()
-    
-    with col2:
-        st.markdown(f"### 📄 Página {current_page + 1} de {total_pages}")
-    
-    with col3:
-        if current_page < total_pages - 1:
-            if st.button("Próxima ➡️", key="next_page", use_container_width=True):
-                st.session_state.question_page = current_page + 1
-                st.rerun()
-    
-    st.markdown("---")
-    
-    # Renderiza questões da página atual
+    # ===== RENDERIZA TODAS AS QUESTÕES DA PÁGINA =====
     start_idx = current_page * questions_per_page
     end_idx = min(start_idx + questions_per_page, total_questions)
     
@@ -1014,75 +995,145 @@ def render_assessment():
         question = questions[i]
         render_single_question(question)
     
+    # ===== NAVEGAÇÃO NO FINAL DA PÁGINA =====
     st.markdown("---")
+    st.markdown("### 🧭 Navegação")
     
-    # Ações finais
-    col1, col2, col3 = st.columns(3)
+    # Botões de navegação principais
+    col1, col2, col3 = st.columns([1, 2, 1])
     
     with col1:
-        if st.button("💾 Salvar", key="save_progress", use_container_width=True):
-            st.success("✅ Progresso salvo localmente!")
+        if current_page > 0:
+            if st.button("⬅️ Página Anterior", key="prev_page", use_container_width=True):
+                st.session_state.question_page = current_page - 1
+                st.success("⬅️ Voltando para página anterior...")
+                time.sleep(0.5)
+                st.rerun()
+        else:
+            st.button("⬅️ Página Anterior", key="prev_page_disabled", disabled=True, use_container_width=True)
     
     with col2:
+        # Botão central com status
         if answered >= total_questions:
-            if st.button("✨ Finalizar", key="finish_assessment", type="primary", use_container_width=True):
-                with st.spinner("🧠 Processando resultados..."):
+            if st.button("✨ FINALIZAR AVALIAÇÃO", key="finish_assessment", type="primary", use_container_width=True):
+                with st.spinner("🧠 Processando seus resultados..."):
                     # Calcula resultados
                     calculate_results()
                     
                     # Debug dos resultados
                     if st.session_state.results:
                         st.success("✅ Resultados calculados com sucesso!")
-                        st.json({
-                            "mbti_type": st.session_state.results['mbti_type'],
-                            "disc_scores": st.session_state.results['disc'],
-                            "reliability": st.session_state.results['reliability']
-                        })
                     else:
                         st.error("❌ Erro ao calcular resultados!")
                         return
                     
-                    # Salva no Firestore com debug detalhado
-                    st.markdown("### 💾 Salvando no Firebase")
+                    # Salva no Firestore
+                    if st.session_state.user_id and st.session_state.results:
+                        save_success = save_assessment_to_firestore(st.session_state.user_id, st.session_state.results)
+                        
+                        if save_success:
+                            st.balloons()
+                            st.success("🎉 **SUCESSO!** Resultados salvos!")
+                        else:
+                            st.warning("⚠️ Resultados calculados, mas problema no salvamento")
                     
-                    if not st.session_state.user_id:
-                        st.error("❌ User ID não encontrado")
-                        return
-                    
-                    if not FIREBASE_PROJECT_ID:
-                        st.error("❌ Firebase Project ID não configurado")
-                        return
-                    
-                    if not FIREBASE_API_KEY:
-                        st.error("❌ Firebase API Key não configurado")
-                        return
-                    
-                    st.info(f"🔄 Tentando salvar para usuário: {st.session_state.user_id}")
-                    
-                    save_success = save_assessment_to_firestore(st.session_state.user_id, st.session_state.results)
-                    
-                    if save_success:
-                        st.balloons()
-                        st.success("🎉 **SUCESSO TOTAL!** Resultados calculados e salvos no Firebase!")
-                        st.session_state.assessment_completed = True
-                        st.session_state.current_page = 'results'
-                        time.sleep(3)
-                        st.rerun()
-                    else:
-                        st.error("❌ Problema no salvamento, mas resultados estão disponíveis")
-                        st.session_state.assessment_completed = True
-                        st.session_state.current_page = 'results'
-                        time.sleep(2)
-                        st.rerun()
+                    st.session_state.assessment_completed = True
+                    st.session_state.current_page = 'results'
+                    time.sleep(2)
+                    st.rerun()
+        
+        elif page_progress >= 0.5:  # Pelo menos 50% da página respondida
+            st.button(f"📝 Responda mais {remaining} questões", key="need_more", disabled=True, use_container_width=True)
         else:
-            st.info(f"📝 Faltam {remaining} questões para finalizar")
+            st.button(f"📝 Complete esta página primeiro", key="complete_page", disabled=True, use_container_width=True)
     
     with col3:
-        if st.button("🔄 Reiniciar", key="restart_assessment", use_container_width=True):
-            st.session_state.assessment_answers = {}
-            st.session_state.selected_questions = None
-            st.session_state.question_page = 0
-            st.rerun()
+        if current_page < total_pages - 1:
+            # Só permite avançar se pelo menos 70% da página foi respondida
+            if page_progress >= 0.7:
+                if st.button("Próxima Página ➡️", key="next_page", use_container_width=True):
+                    st.session_state.question_page = current_page + 1
+                    st.success("➡️ Avançando para próxima página...")
+                    time.sleep(0.5)
+                    st.rerun()
+            else:
+                needed = int(len(current_page_questions) * 0.7) - page_answered + 1
+                st.button(f"Responda +{needed} ➡️", key="next_page_disabled", disabled=True, use_container_width=True)
+        else:
+            st.button("Última Página ✅", key="last_page", disabled=True, use_container_width=True)
+    
+    # ===== INFORMAÇÕES ADICIONAIS =====
+    st.markdown("---")
+    
+    # Barra de progresso das páginas
+    st.markdown("### 📊 Progresso por Página")
+    
+    pages_progress = []
+    for page in range(total_pages):
+        page_start = page * questions_per_page
+        page_end = min(page_start + questions_per_page, total_questions)
+        
+        page_answered_count = 0
+        for i in range(page_start, page_end):
+            q = questions[i]
+            answer = st.session_state.assessment_answers.get(q['display_id'], 3)
+            if answer != 3:
+                page_answered_count += 1
+        
+        page_total = page_end - page_start
+        page_pct = page_answered_count / page_total if page_total > 0 else 0
+        pages_progress.append(page_pct)
+    
+    # Mostra progresso visual das páginas
+    progress_cols = st.columns(total_pages)
+    for i, (col, pct) in enumerate(zip(progress_cols, pages_progress)):
+        with col:
+            if i == current_page:
+                st.metric(f"📍 Pág {i+1}", f"{pct:.0%}", delta="Atual")
+            elif pct >= 0.7:
+                st.metric(f"✅ Pág {i+1}", f"{pct:.0%}", delta="OK")
+            elif pct > 0:
+                st.metric(f"⏳ Pág {i+1}", f"{pct:.0%}", delta="Parcial")
+            else:
+                st.metric(f"⭕ Pág {i+1}", f"{pct:.0%}", delta="Vazia")
+    
+    # ===== AÇÕES SECUNDÁRIAS =====
+    st.markdown("---")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("💾 Salvar Progresso", key="save_progress", use_container_width=True):
+            st.success("✅ Progresso salvo localmente!")
+            st.info(f"📊 {answered} questões respondidas de {total_questions}")
+    
+    with col2:
+        if st.button("🏠 Voltar ao Dashboard", key="back_to_dashboard", use_container_width=True):
+            if answered > 0:
+                if st.session_state.get('confirm_exit', False):
+                    st.session_state.current_page = 'dashboard'
+                    st.session_state.confirm_exit = False
+                    st.rerun()
+                else:
+                    st.session_state.confirm_exit = True
+                    st.warning("⚠️ Clique novamente para confirmar. Seu progresso será mantido.")
+            else:
+                st.session_state.current_page = 'dashboard'
+                st.rerun()
+    
+    with col3:
+        if st.button("🔄 Reiniciar Avaliação", key="restart_assessment", use_container_width=True):
+            if st.session_state.get('confirm_restart', False):
+                st.session_state.assessment_answers = {}
+                st.session_state.selected_questions = None
+                st.session_state.question_page = 0
+                st.session_state.confirm_restart = False
+                st.success("🔄 Avaliação reiniciada!")
+                st.rerun()
+            else:
+                st.session_state.confirm_restart = True
+                st.error("⚠️ Clique novamente para confirmar. Todos os dados serão perdidos!")
+
 
 def render_single_question(question):
     """Renderiza uma questão individual com auto-avanço inteligente"""
