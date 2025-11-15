@@ -18,106 +18,170 @@ st.set_page_config(
 # Configurações do Firebase
 FIREBASE_API_KEY = st.secrets.get("FIREBASE_API_KEY", "")
 FIREBASE_PROJECT_ID = st.secrets.get("FIREBASE_PROJECT_ID", "")
+FIREBASE_DATABASE_URL = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com"
 
 # URLs da Firebase Auth API
 FIREBASE_SIGNUP_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
 FIREBASE_SIGNIN_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
 FIREBASE_RESET_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
 
-# CSS mais claro
+# CSS melhorado com melhor visibilidade
 st.markdown("""
 <style>
     .stApp {
-        background-color: #f8fafc;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     }
     
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 2rem;
-        border-radius: 15px;
+        padding: 3rem 2rem;
+        border-radius: 20px;
         margin-bottom: 2rem;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     .metric-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        border-left: 4px solid #667eea;
-        margin: 0.5rem 0;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.95);
+        padding: 2rem;
+        border-radius: 15px;
+        border-left: 6px solid #667eea;
+        margin: 1rem 0;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(10px);
     }
     
     .question-container {
-        background: white;
-        padding: 2rem;
-        border-radius: 12px;
-        border-left: 5px solid #667eea;
-        margin: 1.5rem 0;
-        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.95);
+        padding: 2.5rem;
+        border-radius: 15px;
+        border-left: 6px solid #667eea;
+        margin: 2rem 0;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
         color: #1a202c;
+        backdrop-filter: blur(10px);
+    }
+    
+    .question-container h4 {
+        font-size: 1.3rem;
+        font-weight: 600;
+        line-height: 1.5;
+        margin-bottom: 1.5rem;
+        color: #2d3748;
     }
     
     .insight-card {
         background: linear-gradient(135deg, #e6fffa 0%, #f0fff4 100%);
-        padding: 1.5rem;
-        border-radius: 12px;
-        margin: 1rem 0;
-        border-left: 4px solid #38b2ac;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        border-radius: 15px;
+        margin: 1.5rem 0;
+        border-left: 6px solid #38b2ac;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         color: #1a202c;
     }
     
     .auth-container {
-        background: white;
-        padding: 2rem;
-        border-radius: 12px;
-        margin: 1rem 0;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e2e8f0;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 2.5rem;
+        border-radius: 15px;
+        margin: 1.5rem 0;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
     }
     
     .strength-card {
         background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
         color: white;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 0.8rem 0;
+        box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
     }
     
     .development-card {
         background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
         color: white;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 0.8rem 0;
+        box-shadow: 0 4px 15px rgba(237, 137, 54, 0.3);
     }
     
     .career-card {
         background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);
         color: white;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 0.8rem 0;
+        box-shadow: 0 4px 15px rgba(159, 122, 234, 0.3);
     }
     
     .login-required {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 2rem;
-        border-radius: 12px;
+        padding: 3rem 2rem;
+        border-radius: 20px;
         text-align: center;
         margin: 2rem 0;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+    
+    .nav-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .nav-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .stRadio > div {
+        background: rgba(255, 255, 255, 0.8);
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 0.5rem 0;
     }
     
     .stMarkdown {
         color: #1a202c;
     }
     
-    .css-1d391kg {
-        background-color: #f7fafc;
+    /* Melhor visibilidade para texto */
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
+        color: #2d3748 !important;
+        font-weight: 700;
+    }
+    
+    .stMarkdown p {
+        color: #4a5568 !important;
+        line-height: 1.6;
+    }
+    
+    /* Botões mais visíveis */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.8rem 2rem;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -198,13 +262,17 @@ def initialize_session_state():
     if 'assessment_answers' not in st.session_state:
         st.session_state.assessment_answers = {}
     if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'home'
+        st.session_state.current_page = 'dashboard'
     if 'results' not in st.session_state:
         st.session_state.results = None
     if 'selected_questions' not in st.session_state:
         st.session_state.selected_questions = None
     if 'assessment_start_time' not in st.session_state:
         st.session_state.assessment_start_time = None
+    if 'question_page' not in st.session_state:
+        st.session_state.question_page = 0
+    if 'confirm_restart' not in st.session_state:
+        st.session_state.confirm_restart = False
 
 def firebase_signup(email, password, display_name=""):
     """Cadastra usuário no Firebase"""
@@ -218,7 +286,7 @@ def firebase_signup(email, password, display_name=""):
         if display_name:
             payload["displayName"] = display_name
             
-        response = requests.post(FIREBASE_SIGNUP_URL, json=payload)
+        response = requests.post(FIREBASE_SIGNUP_URL, json=payload, timeout=10)
         
         if response.status_code == 200:
             return True, response.json(), "Usuário cadastrado com sucesso!"
@@ -226,7 +294,6 @@ def firebase_signup(email, password, display_name=""):
             error_data = response.json()
             error_message = error_data.get('error', {}).get('message', 'Erro desconhecido')
             
-            # Traduz mensagens de erro comuns
             if 'EMAIL_EXISTS' in error_message:
                 return False, None, "Este email já está cadastrado"
             elif 'WEAK_PASSWORD' in error_message:
@@ -248,7 +315,7 @@ def firebase_signin(email, password):
             "returnSecureToken": True
         }
         
-        response = requests.post(FIREBASE_SIGNIN_URL, json=payload)
+        response = requests.post(FIREBASE_SIGNIN_URL, json=payload, timeout=10)
         
         if response.status_code == 200:
             return True, response.json(), "Login realizado com sucesso!"
@@ -256,7 +323,6 @@ def firebase_signin(email, password):
             error_data = response.json()
             error_message = error_data.get('error', {}).get('message', 'Erro desconhecido')
             
-            # Traduz mensagens de erro comuns
             if 'EMAIL_NOT_FOUND' in error_message:
                 return False, None, "Email não encontrado"
             elif 'INVALID_PASSWORD' in error_message:
@@ -279,7 +345,7 @@ def firebase_reset_password(email):
             "email": email
         }
         
-        response = requests.post(FIREBASE_RESET_URL, json=payload)
+        response = requests.post(FIREBASE_RESET_URL, json=payload, timeout=10)
         
         if response.status_code == 200:
             return True, "Email de recuperação enviado!"
@@ -295,21 +361,58 @@ def firebase_reset_password(email):
     except Exception as e:
         return False, f"Erro de conexão: {str(e)}"
 
+def save_assessment_to_firebase(user_id, results):
+    """Salva avaliação no Firebase Realtime Database"""
+    if not FIREBASE_PROJECT_ID or not user_id:
+        return False
+    
+    try:
+        url = f"{FIREBASE_DATABASE_URL}/assessments/{user_id}.json"
+        
+        data = {
+            "results": results,
+            "timestamp": datetime.now().isoformat(),
+            "user_id": user_id
+        }
+        
+        response = requests.put(url, json=data, timeout=10)
+        return response.status_code == 200
+        
+    except Exception as e:
+        st.error(f"Erro ao salvar no Firebase: {e}")
+        return False
+
+def load_assessment_from_firebase(user_id):
+    """Carrega avaliação do Firebase Realtime Database"""
+    if not FIREBASE_PROJECT_ID or not user_id:
+        return None
+    
+    try:
+        url = f"{FIREBASE_DATABASE_URL}/assessments/{user_id}.json"
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                return data.get("results")
+        
+        return None
+        
+    except Exception as e:
+        st.error(f"Erro ao carregar do Firebase: {e}")
+        return None
+
 def generate_random_questions(num_questions=48):
     """Gera conjunto aleatório de questões balanceadas"""
-    # Garante 12 questões de cada categoria DISC
     selected = []
-    
     categories = ['DISC_D', 'DISC_I', 'DISC_S', 'DISC_C']
     
     for category in categories:
         category_questions = [q for q in QUESTION_POOL if q['category'] == category]
-        selected.extend(category_questions)  # Pega todas as 12 de cada categoria
+        selected.extend(category_questions)
     
-    # Embaralha a ordem
     random.shuffle(selected)
     
-    # Renumera as questões
     for i, question in enumerate(selected, 1):
         question['display_id'] = i
     
@@ -319,10 +422,10 @@ def render_header():
     """Renderiza cabeçalho principal"""
     st.markdown("""
     <div class="main-header">
-        <h1 style='margin-bottom: 0.5rem; font-size: 2.5rem;'>
+        <h1 style='margin-bottom: 1rem; font-size: 3rem; font-weight: 700;'>
             🧠 NeuroMap Pro
         </h1>
-        <p style='font-size: 1.2rem; margin: 0; opacity: 0.9;'>
+        <p style='font-size: 1.4rem; margin: 0; opacity: 0.95; font-weight: 500;'>
             Análise Científica Avançada de Personalidade
         </p>
     </div>
@@ -337,30 +440,33 @@ def render_sidebar():
             st.success(f"👋 Olá, {st.session_state.user_name}!")
             st.caption(f"📧 {st.session_state.user_email}")
             
-            if st.button("🏠 Dashboard", use_container_width=True):
+            # Botões de navegação com keys únicos
+            if st.button("🏠 Dashboard", key="nav_dashboard", use_container_width=True):
                 st.session_state.current_page = 'dashboard'
                 st.rerun()
             
-            if st.button("📝 Nova Avaliação", use_container_width=True):
+            if st.button("📝 Nova Avaliação", key="nav_assessment", use_container_width=True):
                 st.session_state.assessment_answers = {}
                 st.session_state.selected_questions = None
+                st.session_state.assessment_completed = False
+                st.session_state.results = None
+                st.session_state.question_page = 0
                 st.session_state.current_page = 'assessment'
                 st.rerun()
             
-            if st.session_state.assessment_completed:
-                if st.button("📊 Ver Resultados", use_container_width=True):
+            if st.session_state.assessment_completed or st.session_state.results:
+                if st.button("📊 Ver Resultados", key="nav_results", use_container_width=True):
                     st.session_state.current_page = 'results'
                     st.rerun()
             
             st.markdown("---")
             
-            if st.button("🚪 Sair", use_container_width=True):
+            if st.button("🚪 Sair", key="nav_logout", use_container_width=True):
                 # Limpa dados de autenticação
-                st.session_state.authenticated = False
-                st.session_state.user_name = ""
-                st.session_state.user_email = ""
-                st.session_state.user_id = ""
-                st.session_state.id_token = ""
+                for key in ['authenticated', 'user_name', 'user_email', 'user_id', 'id_token', 
+                          'assessment_completed', 'assessment_answers', 'results', 'selected_questions']:
+                    if key in st.session_state:
+                        del st.session_state[key]
                 st.session_state.current_page = 'home'
                 st.rerun()
         else:
@@ -396,6 +502,13 @@ def render_auth_sidebar():
                             st.session_state.user_id = data.get('localId', '')
                             st.session_state.id_token = data.get('idToken', '')
                             st.session_state.current_page = 'dashboard'
+                            
+                            # Carrega avaliação existente
+                            existing_results = load_assessment_from_firebase(st.session_state.user_id)
+                            if existing_results:
+                                st.session_state.results = existing_results
+                                st.session_state.assessment_completed = True
+                            
                             st.success("✅ Login realizado!")
                             time.sleep(1)
                             st.rerun()
@@ -465,11 +578,11 @@ def render_login_required():
     
     st.markdown("""
     <div class="login-required">
-        <h2>🔒 Login com Firebase</h2>
-        <p style="font-size: 1.2rem; margin: 1rem 0;">
+        <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">🔒 Login com Firebase</h2>
+        <p style="font-size: 1.3rem; margin: 1.5rem 0;">
             Para acessar o NeuroMap Pro, faça login ou crie uma conta.
         </p>
-        <p style="font-size: 1.1rem;">
+        <p style="font-size: 1.2rem; font-weight: 500;">
             👈 Use a barra lateral para entrar ou se cadastrar
         </p>
     </div>
@@ -506,6 +619,13 @@ def render_dashboard():
     """Renderiza dashboard principal"""
     st.markdown(f"## 👋 Bem-vindo, {st.session_state.user_name}!")
     
+    # Carrega dados existentes se ainda não carregou
+    if not st.session_state.results and st.session_state.user_id:
+        existing_results = load_assessment_from_firebase(st.session_state.user_id)
+        if existing_results:
+            st.session_state.results = existing_results
+            st.session_state.assessment_completed = True
+    
     # Métricas principais
     col1, col2, col3, col4 = st.columns(4)
     
@@ -522,7 +642,7 @@ def render_dashboard():
             st.metric("🎭 Tipo MBTI", "?", delta="Não avaliado")
     
     with col3:
-        if st.session_state.assessment_completed:
+        if st.session_state.assessment_completed and st.session_state.results:
             reliability = st.session_state.results.get('reliability', 0)
             delta = "Alta" if reliability > 80 else "Média" if reliability > 60 else "Baixa"
             st.metric("🎯 Confiabilidade", f"{reliability}%", delta=delta)
@@ -530,7 +650,7 @@ def render_dashboard():
             st.metric("🎯 Confiabilidade", "0%", delta="Não avaliado")
     
     with col4:
-        if st.session_state.assessment_completed:
+        if st.session_state.assessment_completed and st.session_state.results:
             completion_time = st.session_state.results.get('completion_time', 0)
             st.metric("⏱️ Tempo", f"{completion_time} min", delta="Concluído")
         else:
@@ -561,7 +681,7 @@ def render_dashboard():
             """)
         
         with col2:
-            if st.button("🎯 Iniciar Avaliação", type="primary", use_container_width=True):
+            if st.button("🎯 Iniciar Avaliação", key="start_assessment", type="primary", use_container_width=True):
                 st.session_state.current_page = 'assessment'
                 st.rerun()
             
@@ -575,16 +695,17 @@ def render_dashboard():
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("📊 Ver Análise Completa", type="primary", use_container_width=True):
+            if st.button("📊 Ver Análise Completa", key="view_results", type="primary", use_container_width=True):
                 st.session_state.current_page = 'results'
                 st.rerun()
         
         with col2:
-            if st.button("🔄 Nova Avaliação", use_container_width=True):
+            if st.button("🔄 Nova Avaliação", key="new_assessment", use_container_width=True):
                 st.session_state.assessment_answers = {}
                 st.session_state.selected_questions = None
                 st.session_state.assessment_completed = False
                 st.session_state.results = None
+                st.session_state.question_page = 0
                 st.session_state.current_page = 'assessment'
                 st.rerun()
         
@@ -633,14 +754,14 @@ def render_assessment():
     # Navegação por páginas (6 questões por página)
     questions_per_page = 6
     total_pages = (total_questions + questions_per_page - 1) // questions_per_page
-    current_page = st.session_state.get('question_page', 0)
+    current_page = st.session_state.question_page
     
     # Navegação
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col1:
         if current_page > 0:
-            if st.button("⬅️ Anterior", use_container_width=True):
+            if st.button("⬅️ Anterior", key="prev_page", use_container_width=True):
                 st.session_state.question_page = current_page - 1
                 st.rerun()
     
@@ -649,7 +770,7 @@ def render_assessment():
     
     with col3:
         if current_page < total_pages - 1:
-            if st.button("Próxima ➡️", use_container_width=True):
+            if st.button("Próxima ➡️", key="next_page", use_container_width=True):
                 st.session_state.question_page = current_page + 1
                 st.rerun()
     
@@ -669,15 +790,20 @@ def render_assessment():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("💾 Salvar", use_container_width=True):
+        if st.button("💾 Salvar", key="save_progress", use_container_width=True):
             st.success("✅ Progresso salvo!")
             time.sleep(1)
     
     with col2:
         if answered >= total_questions:
-            if st.button("✨ Finalizar", type="primary", use_container_width=True):
+            if st.button("✨ Finalizar", key="finish_assessment", type="primary", use_container_width=True):
                 with st.spinner("🧠 Processando..."):
                     calculate_results()
+                    
+                    # Salva no Firebase
+                    if st.session_state.user_id and st.session_state.results:
+                        save_assessment_to_firebase(st.session_state.user_id, st.session_state.results)
+                    
                     st.session_state.assessment_completed = True
                     st.session_state.current_page = 'results'
                     st.success("🎉 Concluído!")
@@ -687,8 +813,8 @@ def render_assessment():
             st.info(f"📝 Faltam {remaining} questões")
     
     with col3:
-        if st.button("🔄 Reiniciar", use_container_width=True):
-            if st.session_state.get('confirm_restart', False):
+        if st.button("🔄 Reiniciar", key="restart_assessment", use_container_width=True):
+            if st.session_state.confirm_restart:
                 st.session_state.assessment_answers = {}
                 st.session_state.selected_questions = None
                 st.session_state.question_page = 0
@@ -701,52 +827,51 @@ def render_assessment():
 def render_single_question(question):
     """Renderiza uma questão individual"""
     
-    with st.container():
-        st.markdown(f"""
-        <div class="question-container">
-            <h4 style="margin: 0; color: #1a202c;">
-                {question['display_id']}. {question['text']}
-            </h4>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Escala Likert
-        current_value = st.session_state.assessment_answers.get(question['display_id'], 3)
-        
-        # Radio buttons
-        options = [
-            (1, "1 - Discordo Totalmente"),
-            (2, "2 - Discordo Parcialmente"),
-            (3, "3 - Neutro"),
-            (4, "4 - Concordo Parcialmente"),
-            (5, "5 - Concordo Totalmente")
-        ]
-        
-        selected = st.radio(
-            "Escolha sua resposta:",
-            options,
-            index=current_value - 1,
-            key=f"q{question['display_id']}_radio",
-            format_func=lambda x: x[1],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
-        
-        st.session_state.assessment_answers[question['display_id']] = selected[0]
-        
-        # Feedback visual
-        feedback_emojis = {1: "🔴", 2: "🟠", 3: "🟡", 4: "🟢", 5: "🟢"}
-        feedback_texts = {
-            1: "Discordo totalmente",
-            2: "Discordo parcialmente", 
-            3: "Neutro",
-            4: "Concordo parcialmente",
-            5: "Concordo totalmente"
-        }
-        
-        st.caption(f"{feedback_emojis[selected[0]]} {feedback_texts[selected[0]]}")
-        
-        st.markdown("---")
+    st.markdown(f"""
+    <div class="question-container">
+        <h4>
+            {question['display_id']}. {question['text']}
+        </h4>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Escala Likert
+    current_value = st.session_state.assessment_answers.get(question['display_id'], 3)
+    
+    # Radio buttons
+    options = [
+        (1, "1 - Discordo Totalmente"),
+        (2, "2 - Discordo Parcialmente"),
+        (3, "3 - Neutro"),
+        (4, "4 - Concordo Parcialmente"),
+        (5, "5 - Concordo Totalmente")
+    ]
+    
+    selected = st.radio(
+        "Escolha sua resposta:",
+        options,
+        index=current_value - 1,
+        key=f"q{question['display_id']}_radio_{question['id']}",
+        format_func=lambda x: x[1],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    
+    st.session_state.assessment_answers[question['display_id']] = selected[0]
+    
+    # Feedback visual
+    feedback_emojis = {1: "🔴", 2: "🟠", 3: "🟡", 4: "🟢", 5: "🟢"}
+    feedback_texts = {
+        1: "Discordo totalmente",
+        2: "Discordo parcialmente", 
+        3: "Neutro",
+        4: "Concordo parcialmente",
+        5: "Concordo totalmente"
+    }
+    
+    st.caption(f"{feedback_emojis[selected[0]]} {feedback_texts[selected[0]]}")
+    
+    st.markdown("---")
 
 def calculate_results():
     """Calcula resultados da avaliação"""
@@ -786,14 +911,14 @@ def calculate_results():
     
     # Determina MBTI simplificado
     mbti_type = ""
-    mbti_type += "E" if disc_scores["I"] > 25 else "I"  # Baseado em Influência
-    mbti_type += "S" if disc_scores["C"] > 25 else "N"  # Baseado em Conformidade
-    mbti_type += "T" if disc_scores["D"] > 25 else "F"  # Baseado em Dominância
-    mbti_type += "J" if disc_scores["C"] > 25 else "P"  # Baseado em Conformidade
+    mbti_type += "E" if disc_scores["I"] > 25 else "I"
+    mbti_type += "S" if disc_scores["C"] > 25 else "N"
+    mbti_type += "T" if disc_scores["D"] > 25 else "F"
+    mbti_type += "J" if disc_scores["C"] > 25 else "P"
     
     # Calcula confiabilidade
     response_values = list(answers.values())
-    response_variance = np.var(response_values)
+    response_variance = np.var(response_values) if len(response_values) > 1 else 0
     
     if response_variance < 0.5:
         reliability = 65
@@ -831,7 +956,7 @@ def render_results():
     st.markdown(f"""
     <div class="insight-card">
         <h2 style="color: #2d3748; margin-top: 0;">🎯 Resumo do seu Perfil</h2>
-        <p style="font-size: 1.1rem; margin-bottom: 0;">
+        <p style="font-size: 1.2rem; margin-bottom: 0;">
             Baseado em {results['total_questions']} questões científicas com 
             <strong>{results['reliability']}% de confiabilidade</strong> 
             (concluído em {results['completion_time']} minutos)
@@ -870,7 +995,6 @@ def render_results():
     for key, score in results['disc'].items():
         name, description = disc_descriptions[key]
         
-        # Determina nível e cor
         if score >= 35:
             level = "Alto"
             color = "#48bb78"
@@ -882,10 +1006,10 @@ def render_results():
             color = "#e53e3e"
         
         st.markdown(f"""
-        <div style="background: {color}20; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; 
-                    border-left: 4px solid {color};">
-            <h5 style="margin: 0; color: {color};">{name} - {score:.0f}% ({level})</h5>
-            <p style="margin: 0.5rem 0 0 0; color: #2d3748; font-size: 0.9rem;">
+        <div style="background: {color}20; padding: 1.5rem; border-radius: 12px; margin: 1rem 0; 
+                    border-left: 6px solid {color};">
+            <h5 style="margin: 0; color: {color}; font-size: 1.2rem;">{name} - {score:.0f}% ({level})</h5>
+            <p style="margin: 0.8rem 0 0 0; color: #2d3748; font-size: 1rem;">
                 {description}
             </p>
         </div>
@@ -899,10 +1023,10 @@ def render_results():
     
     st.markdown(f"""
     <div class="insight-card">
-        <h3 style="color: #2d3748; margin-top: 0;">
+        <h3 style="color: #2d3748; margin-top: 0; font-size: 1.5rem;">
             Tipo {mbti_type}: {mbti_descriptions['title']}
         </h3>
-        <p style="font-size: 1.1rem; color: #2d3748;">{mbti_descriptions['description']}</p>
+        <p style="font-size: 1.2rem; color: #2d3748;">{mbti_descriptions['description']}</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -943,7 +1067,7 @@ def render_results():
     # Botão de download PDF
     st.markdown("---")
     
-    if st.button("📄 Gerar e Baixar Relatório PDF", type="primary", use_container_width=True):
+    if st.button("📄 Gerar e Baixar Relatório PDF", key="generate_pdf", type="primary", use_container_width=True):
         with st.spinner("📝 Gerando relatório..."):
             pdf_content = generate_pdf_report(results)
             
@@ -955,6 +1079,7 @@ def render_results():
                 data=pdf_content,
                 file_name=filename,
                 mime="application/pdf",
+                key="download_pdf",
                 use_container_width=True
             )
             
@@ -974,7 +1099,7 @@ def render_results_preview():
     with col1:
         st.markdown("#### 🎭 Perfil DISC")
         for dim, score in results['disc'].items():
-            if score > 20:  # Mostra dimensões significativas
+            if score > 20:
                 st.write(f"**{dim}**: {score:.0f}%")
     
     with col2:
@@ -1001,6 +1126,22 @@ def get_mbti_description(mbti_type):
         'ENFJ': {
             'title': 'O Protagonista',
             'description': 'Líder carismático e inspirador, capaz de motivar outros a alcançarem seu potencial.'
+        },
+        'ISTJ': {
+            'title': 'O Logístico',
+            'description': 'Pessoa prática e orientada a fatos, com confiabilidade que não pode ser questionada.'
+        },
+        'INTJ': {
+            'title': 'O Arquiteto',
+            'description': 'Pensador imaginativo e estratégico, com plano para tudo.'
+        },
+        'ISFJ': {
+            'title': 'O Protetor',
+            'description': 'Pessoa calorosa e dedicada, sempre pronta a defender seus entes queridos.'
+        },
+        'INFJ': {
+            'title': 'O Advogado',
+            'description': 'Pessoa criativa e perspicaz, inspirada e decidida, idealisticamente.'
         }
     }
     
