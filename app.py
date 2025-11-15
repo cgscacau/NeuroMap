@@ -549,7 +549,7 @@ def generate_random_questions(num_questions=48):
     return selected
 
 def calculate_results():
-    """Calcula resultados da avaliação com algoritmo aprimorado"""
+    """Calcula resultados da avaliação com algoritmo corrigido"""
     
     answers = st.session_state.assessment_answers
     questions = st.session_state.selected_questions
@@ -557,6 +557,11 @@ def calculate_results():
     if not answers or not questions:
         st.error("❌ Dados da avaliação não encontrados")
         return
+    
+    # Debug: mostra algumas respostas
+    st.write("🔍 **Debug - Primeiras 5 respostas:**")
+    sample_answers = dict(list(answers.items())[:5])
+    st.write(sample_answers)
     
     # Inicializa scores DISC
     disc_raw_scores = {"D": 0.0, "I": 0.0, "S": 0.0, "C": 0.0}
@@ -571,18 +576,29 @@ def calculate_results():
         category = question['category']
         weight = question['weight']
         
-        # Converte resposta Likert (1-5) para score ponderado
-        if answer >= 4:
-            contribution = (answer - 3) * weight  # +1 ou +2 * weight
-        elif answer <= 2:
-            contribution = (answer - 3) * weight  # -1 ou -2 * weight
-        else:
-            contribution = 0  # Neutro
+        # NOVO: Sistema de pontuação mais diferenciado
+        # Respostas 4-5 = forte concordância (pontos positivos)
+        # Respostas 1-2 = forte discordância (pontos negativos)  
+        # Resposta 3 = neutro (zero pontos)
+        
+        if answer == 5:
+            points = 2.0 * weight  # Concordo totalmente
+        elif answer == 4:
+            points = 1.0 * weight  # Concordo parcialmente
+        elif answer == 3:
+            points = 0.0           # Neutro
+        elif answer == 2:
+            points = -1.0 * weight # Discordo parcialmente
+        else:  # answer == 1
+            points = -2.0 * weight # Discordo totalmente
         
         if category.startswith('DISC_'):
             dim = category.split('_')[1]
-            disc_raw_scores[dim] += contribution
+            disc_raw_scores[dim] += points
             disc_question_counts[dim] += 1
+    
+    st.write("🔍 **Debug - Scores brutos:**")
+    st.write(disc_raw_scores)
     
     # Calcula médias por dimensão
     disc_averages = {}
@@ -592,70 +608,81 @@ def calculate_results():
         else:
             disc_averages[dim] = 0
     
-    # Normaliza para escala 0-100 (com base mínima de 10%)
-    min_score = min(disc_averages.values())
-    max_score = max(disc_averages.values())
+    st.write("🔍 **Debug - Médias:**")
+    st.write(disc_averages)
     
-    # Evita divisão por zero
-    if max_score == min_score:
+    # NOVO: Converte para escala 0-100 de forma mais realista
+    # Encontra o range dos scores
+    min_avg = min(disc_averages.values())
+    max_avg = max(disc_averages.values())
+    
+    # Se todos iguais, distribui igualmente
+    if max_avg == min_avg:
         disc_scores = {"D": 25, "I": 25, "S": 25, "C": 25}
     else:
-        range_scores = max_score - min_score
-        disc_scores = {}
+        # Converte para escala 5-45 (base + variação)
+        base_score = 5  # Score mínimo
+        range_score = 40  # Range máximo (45-5)
+        total_range = max_avg - min_avg
         
-        for dim, score in disc_averages.items():
-            normalized = ((score - min_score) / range_scores) * 40 + 10
-            disc_scores[dim] = max(10, min(50, normalized))
+        disc_scores = {}
+        for dim, avg in disc_averages.items():
+            if total_range > 0:
+                normalized = ((avg - min_avg) / total_range) * range_score + base_score
+            else:
+                normalized = 25
+            disc_scores[dim] = max(5, min(45, normalized))
     
     # Ajusta para somar 100%
     total = sum(disc_scores.values())
-    for dim in disc_scores:
-        disc_scores[dim] = (disc_scores[dim] / total) * 100
+    if total > 0:
+        for dim in disc_scores:
+            disc_scores[dim] = (disc_scores[dim] / total) * 100
     
-    # Determina MBTI baseado em múltiplos fatores
+    st.write("🔍 **Debug - Scores finais:**")
+    st.write(disc_scores)
+    
+    # NOVO: MBTI baseado nos scores DISC reais
     mbti_type = ""
     
-    # Extroversão vs Introversão (baseado em Influência)
-    mbti_type += "E" if disc_scores["I"] > 30 else "I"
+    # Extroversão (E) vs Introversão (I)
+    # Alto I (Influência) = Extrovertido
+    # Alto S (Estabilidade) = Introvertido
+    extraversion_score = disc_scores["I"] - disc_scores["S"]
+    mbti_type += "E" if extraversion_score > 0 else "I"
     
-    # Sensação vs Intuição (baseado em Conformidade vs outros)
-    mbti_type += "S" if disc_scores["C"] > 30 else "N"
+    # Sensação (S) vs Intuição (N)  
+    # Alto C (Conformidade) = Sensação (foco em detalhes)
+    # Alto D (Dominância) = Intuição (foco no big picture)
+    sensing_score = disc_scores["C"] - disc_scores["D"]
+    mbti_type += "S" if sensing_score > 0 else "N"
     
-    # Pensamento vs Sentimento (baseado em Dominância vs Estabilidade)
-    thinking_score = disc_scores["D"] + disc_scores["C"]
-    feeling_score = disc_scores["I"] + disc_scores["S"]
-    mbti_type += "T" if thinking_score > feeling_score else "F"
+    # Pensamento (T) vs Sentimento (F)
+    # Alto D+C = Pensamento (lógica)
+    # Alto I+S = Sentimento (pessoas)
+    thinking_score = (disc_scores["D"] + disc_scores["C"]) - (disc_scores["I"] + disc_scores["S"])
+    mbti_type += "T" if thinking_score > 0 else "F"
     
-    # Julgamento vs Percepção (baseado em Conformidade + Dominância)
-    judging_score = disc_scores["C"] + disc_scores["D"]
-    mbti_type += "J" if judging_score > 50 else "P"
+    # Julgamento (J) vs Percepção (P)
+    # Alto C+S = Julgamento (estrutura)
+    # Alto D+I = Percepção (flexibilidade)
+    judging_score = (disc_scores["C"] + disc_scores["S"]) - (disc_scores["D"] + disc_scores["I"])
+    mbti_type += "J" if judging_score > 0 else "P"
     
-    # Calcula confiabilidade baseada na variância e consistência
+    # Calcula confiabilidade baseada na diferenciação
     response_values = list(answers.values())
     response_variance = np.var(response_values) if len(response_values) > 1 else 0
     
-    # Verifica consistência interna
-    consistency_score = 0
-    for dim in ["D", "I", "S", "C"]:
-        dim_responses = []
-        for q_id, answer in answers.items():
-            question = next((q for q in questions if q['display_id'] == q_id), None)
-            if question and question['category'] == f'DISC_{dim}':
-                dim_responses.append(answer)
-        
-        if len(dim_responses) > 1:
-            dim_variance = np.var(dim_responses)
-            consistency_score += (2.0 - min(2.0, dim_variance))
+    # Maior diferenciação entre dimensões = maior confiabilidade
+    disc_variance = np.var(list(disc_scores.values()))
     
-    consistency_score = consistency_score / 4
+    # Confiabilidade: 70-95% baseada na variância das respostas e diferenciação
+    base_reliability = 70
+    variance_bonus = min(15, response_variance * 5)  # Variância nas respostas
+    differentiation_bonus = min(10, disc_variance * 2)  # Diferenciação entre dimensões
     
-    # Calcula confiabilidade final (60-95%)
-    base_reliability = 60
-    variance_bonus = min(20, (2.0 - response_variance) * 10)
-    consistency_bonus = min(15, consistency_score * 7.5)
-    
-    reliability = int(base_reliability + variance_bonus + consistency_bonus)
-    reliability = max(60, min(95, reliability))
+    reliability = int(base_reliability + variance_bonus + differentiation_bonus)
+    reliability = max(70, min(95, reliability))
     
     # Tempo de conclusão
     completion_time = 0
@@ -670,10 +697,12 @@ def calculate_results():
         "reliability": reliability,
         "completion_time": max(1, completion_time),
         "total_questions": len(questions),
-        "response_consistency": round(consistency_score, 2),
+        "response_consistency": round(np.var(list(disc_scores.values())), 2),
         "response_variance": round(response_variance, 2),
         "answered_questions": len(answers)
     }
+    
+    st.success(f"✅ **Novo cálculo:** DISC dominante = {max(disc_scores, key=disc_scores.get)} | MBTI = {mbti_type}")
 
 def create_simple_charts():
     """Cria gráficos simples sem Plotly"""
@@ -1443,143 +1472,87 @@ def get_mbti_description(mbti_type):
     })
 
 def generate_insights(dominant_disc, mbti_type, results):
-    """Gera insights personalizados baseados no perfil real"""
+    """Gera insights corrigidos baseados no MBTI real"""
     
     disc_scores = results['disc']
     
-    # Identifica perfis dominantes (acima de 30%)
-    high_traits = [dim for dim, score in disc_scores.items() if score >= 30]
-    
-    # Insights baseados em combinações reais
-    if 'D' in high_traits and 'C' in high_traits:
-        # Dominante + Conformidade = Líder Analítico
-        strengths = [
-            "Liderança baseada em dados e análise",
-            "Tomada de decisão fundamentada",
-            "Foco em resultados com qualidade",
-            "Capacidade de planejamento estratégico"
-        ]
-        development = [
-            "Desenvolver flexibilidade em situações imprevistas",
-            "Melhorar comunicação interpessoal",
-            "Praticar delegação com menos controle",
-            "Equilibrar perfeccionismo com prazos"
-        ]
-        careers = [
-            "CEO ou Diretor Geral",
-            "Consultor em Gestão",
-            "Gerente de Projetos Complexos",
-            "Analista Sênior de Negócios"
-        ]
-    
-    elif 'I' in high_traits and 'S' in high_traits:
-        # Influência + Estabilidade = Colaborador Natural
-        strengths = [
-            "Excelente em trabalho em equipe",
-            "Comunicação empática e efetiva",
-            "Capacidade de mediar conflitos",
-            "Construção de relacionamentos duradouros"
-        ]
-        development = [
-            "Desenvolver assertividade em negociações",
-            "Praticar tomada de decisão individual",
-            "Melhorar gestão de tempo pessoal",
-            "Aumentar conforto com mudanças rápidas"
-        ]
-        careers = [
-            "Gerente de Recursos Humanos",
-            "Coordenador de Equipes",
-            "Consultor em Relacionamento",
-            "Facilitador de Treinamentos"
-        ]
-    
-    else:
-        # Perfil padrão baseado no dominante
-        if dominant_disc == 'D':
-            strengths = [
+    # Insights baseados no MBTI real, não só no DISC
+    mbti_insights = {
+        'INFP': {
+            'strengths': [
+                "Criatividade e imaginação excepcional",
+                "Empatia profunda e compreensão das pessoas",
+                "Valores sólidos e integridade pessoal",
+                "Capacidade de inspirar e motivar através de ideais"
+            ],
+            'development': [
+                "Desenvolver habilidades de organização e planejamento",
+                "Praticar comunicação mais direta e assertiva",
+                "Melhorar gestão de tempo e prazos",
+                "Equilibrar idealismo com realismo prático"
+            ],
+            'careers': [
+                "Psicólogo ou Terapeuta",
+                "Escritor ou Jornalista",
+                "Consultor em Recursos Humanos",
+                "Profissional de ONGs e Causas Sociais"
+            ]
+        },
+        'ESTJ': {
+            'strengths': [
                 "Liderança natural e orientação para resultados",
-                "Capacidade de tomar decisões rapidamente",
-                "Foco em eficiência e produtividade",
-                "Habilidade de superar obstáculos"
-            ]
-            development = [
-                "Desenvolver paciência com processos colaborativos",
-                "Melhorar escuta ativa",
+                "Capacidade de organizar pessoas e processos",
+                "Tomada de decisão rápida e eficiente",
+                "Foco em produtividade e eficiência"
+            ],
+            'development': [
+                "Desenvolver flexibilidade e adaptabilidade",
+                "Melhorar escuta ativa e empatia",
                 "Praticar delegação efetiva",
-                "Equilibrar assertividade com diplomacia"
-            ]
-            careers = [
-                "Diretor Executivo",
+                "Equilibrar assertividade com colaboração"
+            ],
+            'careers': [
+                "Diretor Executivo ou CEO",
                 "Gerente de Operações",
-                "Empreendedor",
-                "Líder de Vendas"
+                "Consultor Empresarial",
+                "Líder de Projetos Estratégicos"
             ]
-        
-        elif dominant_disc == 'I':
-            strengths = [
-                "Comunicação persuasiva e carismática",
-                "Capacidade de motivar equipes",
-                "Networking e construção de relacionamentos",
-                "Adaptabilidade social"
-            ]
-            development = [
-                "Melhorar foco em detalhes",
-                "Desenvolver planejamento de longo prazo",
-                "Praticar escuta mais que fala",
-                "Aumentar consistência nas entregas"
-            ]
-            careers = [
-                "Gerente de Marketing",
-                "Coordenador de Vendas",
-                "Facilitador de Treinamentos",
-                "Relações Públicas"
-            ]
-        
-        elif dominant_disc == 'S':
-            strengths = [
-                "Confiabilidade e consistência",
-                "Trabalho em equipe colaborativo",
-                "Paciência e estabilidade emocional",
-                "Suporte efetivo aos colegas"
-            ]
-            development = [
-                "Desenvolver iniciativa pessoal",
-                "Melhorar adaptação a mudanças",
-                "Praticar liderança ativa",
-                "Aumentar assertividade"
-            ]
-            careers = [
-                "Coordenador de Suporte",
-                "Analista de Processos",
-                "Gerente de Operações",
-                "Especialista em Atendimento"
-            ]
-        
-        else:  # C dominante
-            strengths = [
-                "Atenção excepcional aos detalhes",
-                "Análise sistemática e precisa",
-                "Foco em qualidade e excelência",
-                "Pensamento crítico desenvolvido"
-            ]
-            development = [
-                "Melhorar comunicação interpessoal",
-                "Desenvolver flexibilidade",
-                "Praticar tomada de decisão rápida",
-                "Aumentar tolerância a ambiguidade"
-            ]
-            careers = [
-                "Analista de Dados",
-                "Consultor Técnico",
-                "Gerente de Qualidade",
-                "Especialista em Compliance"
-            ]
-    
-    return {
-        'strengths': strengths,
-        'development': development,
-        'careers': careers
+        }
+        # ... adicionar outros tipos conforme necessário
     }
+    
+    # Retorna insights específicos do MBTI ou genérico baseado no DISC
+    if mbti_type in mbti_insights:
+        return mbti_insights[mbti_type]
+    else:
+        # Fallback para insights genéricos baseados no DISC dominante
+        if dominant_disc == 'D':
+            return mbti_insights['ESTJ']  # Usa ESTJ como padrão para D alto
+        elif dominant_disc == 'S':
+            return mbti_insights['INFP']  # Usa INFP como padrão para S alto
+        else:
+            # Insights genéricos
+            return {
+                'strengths': [
+                    "Perfil equilibrado com múltiplas competências",
+                    "Adaptabilidade a diferentes situações",
+                    "Capacidade de trabalhar em diversos contextos",
+                    "Flexibilidade comportamental"
+                ],
+                'development': [
+                    "Identificar e desenvolver pontos fortes específicos",
+                    "Focar em áreas de maior interesse e aptidão",
+                    "Desenvolver especialização em área escolhida",
+                    "Buscar feedback para autoconhecimento"
+                ],
+                'careers': [
+                    "Consultor Generalista",
+                    "Coordenador de Projetos",
+                    "Analista de Negócios",
+                    "Gestor de Equipes Multidisciplinares"
+                ]
+            }
+
 
 def generate_text_report(results):
     """Gera relatório em texto simples para download"""
