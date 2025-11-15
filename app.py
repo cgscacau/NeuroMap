@@ -1230,11 +1230,13 @@ def generate_insights(dominant_disc, mbti_type, results):
     }
     
     return insights
+
 def generate_pdf_report(results):
-    """Gera relatório PDF com suporte a caracteres especiais"""
+    """Gera relatório PDF com formato correto para download"""
     
     try:
         from fpdf import FPDF
+        import io
         
         class PDF(FPDF):
             def header(self):
@@ -1284,12 +1286,12 @@ def generate_pdf_report(results):
         pdf.cell(0, 6, f"Perfil: {mbti_descriptions['title']}", 0, 1, 'L')
         pdf.ln(3)
         
-        # Quebra texto da descrição
+        # Remove caracteres especiais da descrição
         description = mbti_descriptions['description']
-        # Remove acentos e caracteres especiais
-        description = description.replace('ã', 'a').replace('ç', 'c').replace('é', 'e')
-        description = description.replace('í', 'i').replace('ó', 'o').replace('ú', 'u')
-        description = description.replace('â', 'a').replace('ê', 'e').replace('ô', 'o')
+        description = (description.replace('ã', 'a').replace('ç', 'c').replace('é', 'e')
+                      .replace('í', 'i').replace('ó', 'o').replace('ú', 'u')
+                      .replace('â', 'a').replace('ê', 'e').replace('ô', 'o')
+                      .replace('à', 'a').replace('õ', 'o').replace('ü', 'u'))
         
         # Quebra o texto em linhas
         words = description.split(' ')
@@ -1310,19 +1312,17 @@ def generate_pdf_report(results):
         pdf.cell(0, 8, 'PERFIL DISC DETALHADO', 0, 1, 'L')
         pdf.ln(5)
         
-        # Descrições DISC
         disc_descriptions = {
-            "D": ("Dominancia", "Orientacao para resultados, lideranca direta, tomada de decisao rapida"),
-            "I": ("Influencia", "Comunicacao persuasiva, networking, motivacao de equipes"),
-            "S": ("Estabilidade", "Cooperacao, paciencia, trabalho em equipe consistente"),
-            "C": ("Conformidade", "Foco em qualidade, precisao, analise sistematica")
+            "D": ("Dominancia", "Orientacao para resultados, lideranca direta"),
+            "I": ("Influencia", "Comunicacao persuasiva, networking"),
+            "S": ("Estabilidade", "Cooperacao, paciencia, trabalho em equipe"),
+            "C": ("Conformidade", "Foco em qualidade, precisao, analise")
         }
         
         pdf.set_font('Arial', '', 10)
         for key, value in results['disc'].items():
             name, description = disc_descriptions[key]
             
-            # Determina nível
             if value >= 35:
                 level = "Alto"
             elif value >= 20:
@@ -1348,9 +1348,7 @@ def generate_pdf_report(results):
             "Lideranca natural e orientacao para resultados",
             "Capacidade de tomar decisoes rapidamente", 
             "Foco em eficiencia e produtividade",
-            "Habilidade de motivar equipes",
-            "Comunicacao clara e direta",
-            "Orientacao para objetivos e metas"
+            "Habilidade de motivar equipes"
         ]
         
         pdf.set_font('Arial', '', 10)
@@ -1368,9 +1366,7 @@ def generate_pdf_report(results):
             "Desenvolver paciencia com processos mais lentos",
             "Melhorar escuta ativa e empatia",
             "Praticar delegacao efetiva",
-            "Equilibrar assertividade com colaboracao",
-            "Aprimorar habilidades de feedback construtivo",
-            "Desenvolver maior flexibilidade em mudancas"
+            "Equilibrar assertividade com colaboracao"
         ]
         
         pdf.set_font('Arial', '', 10)
@@ -1387,78 +1383,32 @@ def generate_pdf_report(results):
         careers = [
             "Gerente ou Diretor Executivo",
             "Consultor Empresarial",
-            "Empreendedor ou Fundador de Startup",
-            "Lider de Projetos Estrategicos",
-            "Coordenador de Equipes",
-            "Analista de Negocios Senior"
+            "Empreendedor ou Fundador",
+            "Lider de Projetos Estrategicos"
         ]
         
         pdf.set_font('Arial', '', 10)
         for i, career in enumerate(careers, 1):
             pdf.cell(0, 6, f"{i}. {career}", 0, 1, 'L')
         
-        # Nova página para recomendações
-        pdf.add_page()
+        pdf.ln(15)
         
-        pdf.set_font('Arial', 'B', 16)
-        pdf.cell(0, 10, 'RECOMENDACOES PERSONALIZADAS', 0, 1, 'L')
-        pdf.ln(10)
-        
-        # Recomendações baseadas no perfil dominante
-        dominant_disc = max(results['disc'], key=results['disc'].get)
-        
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 8, f'Baseado no seu perfil dominante: {dominant_disc}', 0, 1, 'L')
-        pdf.ln(5)
-        
-        recommendations = {
-            'D': [
-                "Busque posicoes de lideranca e tomada de decisao",
-                "Desenvolva paciencia para ouvir diferentes perspectivas",
-                "Pratique delegacao efetiva de tarefas",
-                "Equilibre assertividade com colaboracao"
-            ],
-            'I': [
-                "Explore oportunidades de networking e relacionamento",
-                "Desenvolva habilidades de apresentacao publica",
-                "Pratique escuta ativa em conversas",
-                "Balance entusiasmo com analise critica"
-            ],
-            'S': [
-                "Valorize sua capacidade de trabalho em equipe",
-                "Desenvolva confianca para expressar opiniao",
-                "Pratique adaptacao a mudancas graduais",
-                "Explore papeis de suporte e mentoria"
-            ],
-            'C': [
-                "Valorize sua atencao aos detalhes e precisao",
-                "Desenvolva habilidades de comunicacao interpessoal",
-                "Pratique tomada de decisao com informacao limitada",
-                "Explore papeis de analise e consultoria"
-            ]
-        }
-        
-        pdf.set_font('Arial', '', 10)
-        for i, rec in enumerate(recommendations.get(dominant_disc, []), 1):
-            pdf.cell(0, 6, f"{i}. {rec}", 0, 1, 'L')
-        
-        pdf.ln(10)
-        
-        # Rodapé informativo
+        # Rodapé
         pdf.set_font('Arial', 'I', 8)
-        pdf.cell(0, 5, 'Este relatorio foi gerado pelo NeuroMap Pro - Analise Cientifica de Personalidade', 0, 1, 'C')
-        pdf.cell(0, 5, f'Gerado em {datetime.now().strftime("%d/%m/%Y as %H:%M")}', 0, 1, 'C')
+        pdf.cell(0, 5, 'Relatorio gerado pelo NeuroMap Pro', 0, 1, 'C')
+        pdf.cell(0, 5, f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}', 0, 1, 'C')
         
-        # Converte para bytes
-        pdf_output = pdf.output(dest='S')
-        return pdf_output.encode('latin1') if isinstance(pdf_output, str) else pdf_output
+        # Gera o PDF como bytes
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        return pdf_bytes
         
     except ImportError:
         st.error("❌ Biblioteca FPDF não instalada. Execute: pip install fpdf2")
-        return b"Erro: FPDF nao instalada"
+        return None
     except Exception as e:
-        st.error(f"❌ Erro ao gerar PDF: {e}")
-        return b"Erro na geracao do PDF"
+        st.error(f"❌ Erro ao gerar PDF: {str(e)}")
+        return None
+
 
 
 def main():
