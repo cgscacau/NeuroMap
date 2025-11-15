@@ -6,6 +6,11 @@ import json
 import random
 import time
 import requests
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import plotly.figure_factory as ff
+
 
 # Configuração da página
 st.set_page_config(
@@ -1298,27 +1303,83 @@ def render_results():
             
             st.success("🎉 Relatório gerado!")
 
-def render_results_preview():
-    """Preview dos resultados no dashboard"""
+def render_results():
+    """Renderiza página de resultados com gráficos"""
     
-    st.markdown("### 🎯 Resumo dos Resultados")
+    st.title("🎉 Seus Resultados")
     
-    results = st.session_state.results
+    results = st.session_state.get('results')
     if not results:
+        st.error("❌ Nenhum resultado encontrado.")
         return
     
-    col1, col2 = st.columns(2)
+    # Header de resultados
+    st.markdown(f"""
+    <div class="insight-card">
+        <h2 style="color: #2d3748; margin-top: 0;">🎯 Resumo do seu Perfil</h2>
+        <p style="font-size: 1.2rem; margin-bottom: 0;">
+            Baseado em {results['total_questions']} questões científicas com 
+            <strong>{results['reliability']}% de confiabilidade</strong> 
+            (concluído em {results['completion_time']} minutos)
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Métricas principais
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown("#### 🎭 Perfil DISC")
-        for dim, score in results['disc'].items():
-            if score > 20:
-                st.write(f"**{dim}**: {score:.0f}%")
+        dominant_disc = max(results['disc'], key=results['disc'].get)
+        st.metric("🎭 Perfil DISC", f"{dominant_disc}", f"{results['disc'][dominant_disc]:.0f}%")
     
     with col2:
-        st.markdown("#### 💭 Tipo MBTI")
-        st.write(f"**Tipo**: {results['mbti_type']}")
-        st.write(f"**Confiabilidade**: {results['reliability']}%")
+        st.metric("🧠 Tipo MBTI", results['mbti_type'])
+    
+    with col3:
+        st.metric("🎯 Confiabilidade", f"{results['reliability']}%")
+    
+    with col4:
+        st.metric("📊 Consistência", f"{results['response_consistency']:.1f}")
+    
+    st.markdown("---")
+    
+    # Gráficos DISC
+    st.markdown("### 📊 Visualizações do Perfil DISC")
+    
+    # Cria os gráficos
+    fig_bar, fig_pie, fig_radar, fig_gauge = create_disc_charts(results)
+    
+    # Layout dos gráficos
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Barras", "🥧 Pizza", "🎭 Radar", "🎯 Confiabilidade"])
+    
+    with tab1:
+        st.plotly_chart(fig_bar, use_container_width=True)
+    
+    with tab2:
+        st.plotly_chart(fig_pie, use_container_width=True)
+    
+    with tab3:
+        st.plotly_chart(fig_radar, use_container_width=True)
+    
+    with tab4:
+        st.plotly_chart(fig_gauge, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Gráfico MBTI
+    st.markdown("### 🧠 Visualização MBTI")
+    fig_mbti = create_mbti_visualization(results['mbti_type'])
+    st.plotly_chart(fig_mbti, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Gráfico de Comparação
+    st.markdown("### 📈 Comparação com Perfis Típicos")
+    fig_comparison = create_comparison_chart(results)
+    st.plotly_chart(fig_comparison, use_container_width=True)
+    
+    # ... resto do código (análise textual, insights, etc.)
+
 
 def get_mbti_description(mbti_type):
     """Retorna descrição do tipo MBTI"""
@@ -1501,6 +1562,550 @@ def generate_insights(dominant_disc, mbti_type, results):
         'development': development,
         'careers': careers
     }
+
+def create_disc_charts(results):
+    """Cria gráficos interativos para análise DISC"""
+    
+    disc_scores = results['disc']
+    
+    # 1. Gráfico de Barras DISC
+    fig_bar = go.Figure(data=[
+        go.Bar(
+            x=list(disc_scores.keys()),
+            y=list(disc_scores.values()),
+            text=[f'{score:.1f}%' for score in disc_scores.values()],
+            textposition='auto',
+            marker_color=['#e74c3c', '#f39c12', '#27ae60', '#3498db'],
+            marker_line_color='white',
+            marker_line_width=2
+        )
+    ])
+    
+    fig_bar.update_layout(
+        title={
+            'text': '📊 Perfil DISC - Distribuição por Dimensão',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        xaxis_title='Dimensões DISC',
+        yaxis_title='Percentual (%)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font={'color': '#2c3e50'},
+        height=400,
+        showlegend=False
+    )
+    
+    fig_bar.update_xaxis(
+        tickfont={'size': 14, 'color': '#2c3e50'},
+        title_font={'size': 14, 'color': '#2c3e50'}
+    )
+    
+    fig_bar.update_yaxis(
+        tickfont={'size': 12, 'color': '#2c3e50'},
+        title_font={'size': 14, 'color': '#2c3e50'},
+        range=[0, max(disc_scores.values()) * 1.2]
+    )
+    
+    # 2. Gráfico Pizza DISC
+    fig_pie = go.Figure(data=[
+        go.Pie(
+            labels=['Dominância', 'Influência', 'Estabilidade', 'Conformidade'],
+            values=list(disc_scores.values()),
+            hole=0.4,
+            marker_colors=['#e74c3c', '#f39c12', '#27ae60', '#3498db'],
+            textinfo='label+percent',
+            textfont={'size': 12, 'color': 'white'},
+            hovertemplate='<b>%{label}</b><br>%{value:.1f}%<extra></extra>'
+        )
+    ])
+    
+    fig_pie.update_layout(
+        title={
+            'text': '🎯 Distribuição Percentual DISC',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font={'color': '#2c3e50'},
+        height=400,
+        showlegend=True,
+        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': -0.2}
+    )
+    
+    # 3. Gráfico Radar DISC
+    categories = ['Dominância', 'Influência', 'Estabilidade', 'Conformidade']
+    values = list(disc_scores.values())
+    
+    fig_radar = go.Figure()
+    
+    fig_radar.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        name='Seu Perfil',
+        line_color='#3498db',
+        fillcolor='rgba(52, 152, 219, 0.3)',
+        marker={'size': 8, 'color': '#2980b9'}
+    ))
+    
+    # Adiciona perfil médio para comparação
+    average_values = [25, 25, 25, 25]  # Perfil equilibrado
+    fig_radar.add_trace(go.Scatterpolar(
+        r=average_values,
+        theta=categories,
+        fill='toself',
+        name='Perfil Equilibrado',
+        line_color='#95a5a6',
+        fillcolor='rgba(149, 165, 166, 0.1)',
+        line_dash='dash',
+        marker={'size': 6, 'color': '#7f8c8d'}
+    ))
+    
+    fig_radar.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, max(max(values), 50)],
+                tickfont={'color': '#2c3e50'},
+                gridcolor='#bdc3c7'
+            ),
+            angularaxis=dict(
+                tickfont={'size': 12, 'color': '#2c3e50'},
+                gridcolor='#bdc3c7'
+            )
+        ),
+        title={
+            'text': '🎭 Radar DISC - Comparação com Perfil Equilibrado',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=500,
+        showlegend=True,
+        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': -0.1}
+    )
+    
+    # 4. Gráfico de Confiabilidade
+    reliability = results['reliability']
+    
+    fig_gauge = go.Figure(go.Indicator(
+        mode = "gauge+number+delta",
+        value = reliability,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': "🎯 Confiabilidade da Avaliação", 'font': {'size': 18, 'color': '#2c3e50'}},
+        delta = {'reference': 80, 'increasing': {'color': "green"}, 'decreasing': {'color': "red"}},
+        gauge = {
+            'axis': {'range': [None, 100], 'tickcolor': '#2c3e50'},
+            'bar': {'color': "#3498db"},
+            'steps': [
+                {'range': [0, 60], 'color': "#e74c3c"},
+                {'range': [60, 80], 'color': "#f39c12"},
+                {'range': [80, 100], 'color': "#27ae60"}
+            ],
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
+                'value': 90
+            }
+        }
+    ))
+    
+    fig_gauge.update_layout(
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=400,
+        font={'color': '#2c3e50'}
+    )
+    
+    return fig_bar, fig_pie, fig_radar, fig_gauge
+
+def create_mbti_visualization(mbti_type):
+    """Cria visualização do tipo MBTI"""
+    
+    # Decompõe o tipo MBTI
+    dimensions = {
+        'Energia': 'Extroversão' if mbti_type[0] == 'E' else 'Introversão',
+        'Informação': 'Sensação' if mbti_type[1] == 'S' else 'Intuição', 
+        'Decisão': 'Pensamento' if mbti_type[2] == 'T' else 'Sentimento',
+        'Organização': 'Julgamento' if mbti_type[3] == 'J' else 'Percepção'
+    }
+    
+    # Cores para cada preferência
+    colors = {
+        'Extroversão': '#e74c3c', 'Introversão': '#3498db',
+        'Sensação': '#f39c12', 'Intuição': '#9b59b6',
+        'Pensamento': '#27ae60', 'Sentimento': '#e67e22',
+        'Julgamento': '#34495e', 'Percepção': '#16a085'
+    }
+    
+    fig_mbti = go.Figure()
+    
+    y_pos = list(range(len(dimensions)))
+    
+    for i, (dim, pref) in enumerate(dimensions.items()):
+        fig_mbti.add_trace(go.Bar(
+            y=[dim],
+            x=[1],
+            orientation='h',
+            name=pref,
+            marker_color=colors[pref],
+            text=pref,
+            textposition='middle center',
+            textfont={'size': 14, 'color': 'white'},
+            hovertemplate=f'<b>{dim}</b><br>{pref}<extra></extra>'
+        ))
+    
+    fig_mbti.update_layout(
+        title={
+            'text': f'🧠 Tipo MBTI: {mbti_type}',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        xaxis={'visible': False},
+        yaxis={'tickfont': {'size': 12, 'color': '#2c3e50'}},
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=300,
+        showlegend=False,
+        margin={'l': 100, 'r': 50, 't': 80, 'b': 50}
+    )
+    
+    return fig_mbti
+
+def create_comparison_chart(results):
+    """Cria gráfico de comparação com perfis típicos"""
+    
+    # Perfis típicos para comparação
+    typical_profiles = {
+        'Líder Executivo': {'D': 45, 'I': 25, 'S': 15, 'C': 15},
+        'Comunicador': {'D': 20, 'I': 45, 'S': 25, 'C': 10},
+        'Colaborador': {'D': 15, 'I': 25, 'S': 45, 'C': 15},
+        'Analista': {'D': 10, 'I': 15, 'S': 25, 'C': 50},
+        'Seu Perfil': results['disc']
+    }
+    
+    fig_comparison = go.Figure()
+    
+    dimensions = ['D', 'I', 'S', 'C']
+    colors = ['#e74c3c', '#f39c12', '#27ae60', '#3498db', '#9b59b6']
+    
+    for i, (profile_name, scores) in enumerate(typical_profiles.items()):
+        fig_comparison.add_trace(go.Scatterpolar(
+            r=[scores[dim] for dim in dimensions],
+            theta=dimensions,
+            fill='toself' if profile_name == 'Seu Perfil' else None,
+            name=profile_name,
+            line_color=colors[i],
+            fillcolor=f'rgba({",".join(map(str, [int(c*255) for c in px.colors.hex_to_rgb(colors[i])]))}, 0.3)' if profile_name == 'Seu Perfil' else None,
+            line_width=3 if profile_name == 'Seu Perfil' else 2
+        ))
+    
+    fig_comparison.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 50],
+                tickfont={'color': '#2c3e50'},
+                gridcolor='#bdc3c7'
+            ),
+            angularaxis=dict(
+                tickfont={'size': 12, 'color': '#2c3e50'},
+                gridcolor='#bdc3c7'
+            )
+        ),
+        title={
+            'text': '📈 Comparação com Perfis Típicos',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=500,
+        showlegend=True,
+        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': -0.2}
+    )
+    
+    return fig_comparison
+
+def create_disc_charts(results):
+    """Cria gráficos interativos para análise DISC"""
+    
+    disc_scores = results['disc']
+    
+    # 1. Gráfico de Barras DISC
+    fig_bar = go.Figure(data=[
+        go.Bar(
+            x=list(disc_scores.keys()),
+            y=list(disc_scores.values()),
+            text=[f'{score:.1f}%' for score in disc_scores.values()],
+            textposition='auto',
+            marker_color=['#e74c3c', '#f39c12', '#27ae60', '#3498db'],
+            marker_line_color='white',
+            marker_line_width=2
+        )
+    ])
+    
+    fig_bar.update_layout(
+        title={
+            'text': '📊 Perfil DISC - Distribuição por Dimensão',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        xaxis_title='Dimensões DISC',
+        yaxis_title='Percentual (%)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font={'color': '#2c3e50'},
+        height=400,
+        showlegend=False
+    )
+    
+    fig_bar.update_xaxis(
+        tickfont={'size': 14, 'color': '#2c3e50'},
+        title_font={'size': 14, 'color': '#2c3e50'}
+    )
+    
+    fig_bar.update_yaxis(
+        tickfont={'size': 12, 'color': '#2c3e50'},
+        title_font={'size': 14, 'color': '#2c3e50'},
+        range=[0, max(disc_scores.values()) * 1.2]
+    )
+    
+    # 2. Gráfico Pizza DISC
+    fig_pie = go.Figure(data=[
+        go.Pie(
+            labels=['Dominância', 'Influência', 'Estabilidade', 'Conformidade'],
+            values=list(disc_scores.values()),
+            hole=0.4,
+            marker_colors=['#e74c3c', '#f39c12', '#27ae60', '#3498db'],
+            textinfo='label+percent',
+            textfont={'size': 12, 'color': 'white'},
+            hovertemplate='<b>%{label}</b><br>%{value:.1f}%<extra></extra>'
+        )
+    ])
+    
+    fig_pie.update_layout(
+        title={
+            'text': '🎯 Distribuição Percentual DISC',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font={'color': '#2c3e50'},
+        height=400,
+        showlegend=True,
+        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': -0.2}
+    )
+    
+    # 3. Gráfico Radar DISC
+    categories = ['Dominância', 'Influência', 'Estabilidade', 'Conformidade']
+    values = list(disc_scores.values())
+    
+    fig_radar = go.Figure()
+    
+    fig_radar.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        name='Seu Perfil',
+        line_color='#3498db',
+        fillcolor='rgba(52, 152, 219, 0.3)',
+        marker={'size': 8, 'color': '#2980b9'}
+    ))
+    
+    # Adiciona perfil médio para comparação
+    average_values = [25, 25, 25, 25]  # Perfil equilibrado
+    fig_radar.add_trace(go.Scatterpolar(
+        r=average_values,
+        theta=categories,
+        fill='toself',
+        name='Perfil Equilibrado',
+        line_color='#95a5a6',
+        fillcolor='rgba(149, 165, 166, 0.1)',
+        line_dash='dash',
+        marker={'size': 6, 'color': '#7f8c8d'}
+    ))
+    
+    fig_radar.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, max(max(values), 50)],
+                tickfont={'color': '#2c3e50'},
+                gridcolor='#bdc3c7'
+            ),
+            angularaxis=dict(
+                tickfont={'size': 12, 'color': '#2c3e50'},
+                gridcolor='#bdc3c7'
+            )
+        ),
+        title={
+            'text': '🎭 Radar DISC - Comparação com Perfil Equilibrado',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=500,
+        showlegend=True,
+        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': -0.1}
+    )
+    
+    # 4. Gráfico de Confiabilidade
+    reliability = results['reliability']
+    
+    fig_gauge = go.Figure(go.Indicator(
+        mode = "gauge+number+delta",
+        value = reliability,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': "🎯 Confiabilidade da Avaliação", 'font': {'size': 18, 'color': '#2c3e50'}},
+        delta = {'reference': 80, 'increasing': {'color': "green"}, 'decreasing': {'color': "red"}},
+        gauge = {
+            'axis': {'range': [None, 100], 'tickcolor': '#2c3e50'},
+            'bar': {'color': "#3498db"},
+            'steps': [
+                {'range': [0, 60], 'color': "#e74c3c"},
+                {'range': [60, 80], 'color': "#f39c12"},
+                {'range': [80, 100], 'color': "#27ae60"}
+            ],
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
+                'value': 90
+            }
+        }
+    ))
+    
+    fig_gauge.update_layout(
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=400,
+        font={'color': '#2c3e50'}
+    )
+    
+    return fig_bar, fig_pie, fig_radar, fig_gauge
+
+def create_mbti_visualization(mbti_type):
+    """Cria visualização do tipo MBTI"""
+    
+    # Decompõe o tipo MBTI
+    dimensions = {
+        'Energia': 'Extroversão' if mbti_type[0] == 'E' else 'Introversão',
+        'Informação': 'Sensação' if mbti_type[1] == 'S' else 'Intuição', 
+        'Decisão': 'Pensamento' if mbti_type[2] == 'T' else 'Sentimento',
+        'Organização': 'Julgamento' if mbti_type[3] == 'J' else 'Percepção'
+    }
+    
+    # Cores para cada preferência
+    colors = {
+        'Extroversão': '#e74c3c', 'Introversão': '#3498db',
+        'Sensação': '#f39c12', 'Intuição': '#9b59b6',
+        'Pensamento': '#27ae60', 'Sentimento': '#e67e22',
+        'Julgamento': '#34495e', 'Percepção': '#16a085'
+    }
+    
+    fig_mbti = go.Figure()
+    
+    y_pos = list(range(len(dimensions)))
+    
+    for i, (dim, pref) in enumerate(dimensions.items()):
+        fig_mbti.add_trace(go.Bar(
+            y=[dim],
+            x=[1],
+            orientation='h',
+            name=pref,
+            marker_color=colors[pref],
+            text=pref,
+            textposition='middle center',
+            textfont={'size': 14, 'color': 'white'},
+            hovertemplate=f'<b>{dim}</b><br>{pref}<extra></extra>'
+        ))
+    
+    fig_mbti.update_layout(
+        title={
+            'text': f'🧠 Tipo MBTI: {mbti_type}',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        xaxis={'visible': False},
+        yaxis={'tickfont': {'size': 12, 'color': '#2c3e50'}},
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=300,
+        showlegend=False,
+        margin={'l': 100, 'r': 50, 't': 80, 'b': 50}
+    )
+    
+    return fig_mbti
+
+def create_comparison_chart(results):
+    """Cria gráfico de comparação com perfis típicos"""
+    
+    # Perfis típicos para comparação
+    typical_profiles = {
+        'Líder Executivo': {'D': 45, 'I': 25, 'S': 15, 'C': 15},
+        'Comunicador': {'D': 20, 'I': 45, 'S': 25, 'C': 10},
+        'Colaborador': {'D': 15, 'I': 25, 'S': 45, 'C': 15},
+        'Analista': {'D': 10, 'I': 15, 'S': 25, 'C': 50},
+        'Seu Perfil': results['disc']
+    }
+    
+    fig_comparison = go.Figure()
+    
+    dimensions = ['D', 'I', 'S', 'C']
+    colors = ['#e74c3c', '#f39c12', '#27ae60', '#3498db', '#9b59b6']
+    
+    for i, (profile_name, scores) in enumerate(typical_profiles.items()):
+        fig_comparison.add_trace(go.Scatterpolar(
+            r=[scores[dim] for dim in dimensions],
+            theta=dimensions,
+            fill='toself' if profile_name == 'Seu Perfil' else None,
+            name=profile_name,
+            line_color=colors[i],
+            fillcolor=f'rgba({",".join(map(str, [int(c*255) for c in px.colors.hex_to_rgb(colors[i])]))}, 0.3)' if profile_name == 'Seu Perfil' else None,
+            line_width=3 if profile_name == 'Seu Perfil' else 2
+        ))
+    
+    fig_comparison.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 50],
+                tickfont={'color': '#2c3e50'},
+                gridcolor='#bdc3c7'
+            ),
+            angularaxis=dict(
+                tickfont={'size': 12, 'color': '#2c3e50'},
+                gridcolor='#bdc3c7'
+            )
+        ),
+        title={
+            'text': '📈 Comparação com Perfis Típicos',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=500,
+        showlegend=True,
+        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': -0.2}
+    )
+    
+    return fig_comparison
 
 
 
