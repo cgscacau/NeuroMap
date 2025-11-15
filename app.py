@@ -417,45 +417,135 @@ def firebase_reset_password(email):
         return False, f"Erro de conexão: {str(e)}"
 
 def save_assessment_to_firebase(user_id, results):
-    """Salva avaliação no Firebase Realtime Database"""
-    if not FIREBASE_PROJECT_ID or not user_id:
+    """Salva avaliação no Firebase com logs detalhados"""
+    
+    # Verifica configurações
+    if not FIREBASE_PROJECT_ID:
+        st.error("❌ FIREBASE_PROJECT_ID não configurado nos secrets")
+        return False
+    
+    if not user_id:
+        st.error("❌ User ID não encontrado")
         return False
     
     try:
-        url = f"{FIREBASE_DATABASE_URL}/assessments/{user_id}.json"
+        # URL correta para Realtime Database
+        url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/assessments/{user_id}.json"
         
+        # Dados para salvar
         data = {
             "results": results,
             "timestamp": datetime.now().isoformat(),
-            "user_id": user_id
+            "user_id": user_id,
+            "user_email": st.session_state.user_email,
+            "version": "2.0",
+            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
-        response = requests.put(url, json=data, timeout=10)
-        return response.status_code == 200
+        st.info(f"🔄 Tentando salvar em: {url}")
+        st.info(f"📊 Dados: {len(str(data))} caracteres")
         
+        # Requisição PUT para salvar
+        response = requests.put(url, json=data, timeout=15)
+        
+        st.info(f"📡 Status HTTP: {response.status_code}")
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            st.success(f"✅ Salvo no Firebase! Response: {response_data}")
+            return True
+        else:
+            st.error(f"❌ Erro HTTP {response.status_code}")
+            st.error(f"Response: {response.text}")
+            return False
+        
+    except requests.exceptions.Timeout:
+        st.error("❌ Timeout na conexão com Firebase")
+        return False
+    except requests.exceptions.ConnectionError:
+        st.error("❌ Erro de conexão com Firebase")
+        return False
     except Exception as e:
-        st.error(f"Erro ao salvar no Firebase: {e}")
+        st.error(f"❌ Erro inesperado: {str(e)}")
         return False
 
 def load_assessment_from_firebase(user_id):
-    """Carrega avaliação do Firebase Realtime Database"""
+    """Carrega avaliação do Firebase com logs detalhados"""
+    
     if not FIREBASE_PROJECT_ID or not user_id:
         return None
     
     try:
-        url = f"{FIREBASE_DATABASE_URL}/assessments/{user_id}.json"
+        url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/assessments/{user_id}.json"
+        
+        st.info(f"🔄 Carregando de: {url}")
+        
         response = requests.get(url, timeout=10)
+        
+        st.info(f"📡 Status HTTP: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
-            if data:
-                return data.get("results")
-        
-        return None
+            
+            if data and "results" in data:
+                st.success(f"✅ Dados carregados! Timestamp: {data.get('timestamp', 'N/A')}")
+                return data["results"]
+            else:
+                st.info("📭 Nenhuma avaliação salva encontrada")
+                return None
+        else:
+            st.warning(f"⚠️ Erro ao carregar: {response.status_code}")
+            return None
         
     except Exception as e:
-        st.error(f"Erro ao carregar do Firebase: {e}")
+        st.error(f"❌ Erro ao carregar: {str(e)}")
         return None
+
+def test_firebase_connection():
+    """Testa conexão com Firebase Realtime Database"""
+    
+    if not FIREBASE_PROJECT_ID:
+        st.error("❌ FIREBASE_PROJECT_ID não configurado")
+        return False
+    
+    try:
+        # Testa conexão básica
+        url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/.json"
+        
+        st.info(f"🧪 Testando: {url}")
+        
+        response = requests.get(url, timeout=10)
+        
+        st.info(f"📡 Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            st.success("✅ Firebase acessível!")
+            
+            # Testa escrita
+            test_url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/test.json"
+            test_data = {"test": "connection", "timestamp": datetime.now().isoformat()}
+            
+            write_response = requests.put(test_url, json=test_data, timeout=10)
+            
+            if write_response.status_code == 200:
+                st.success("✅ Escrita no Firebase OK!")
+                
+                # Remove teste
+                requests.delete(test_url, timeout=10)
+                return True
+            else:
+                st.error(f"❌ Erro na escrita: {write_response.status_code}")
+                return False
+        else:
+            st.error(f"❌ Firebase inacessível: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        st.error(f"❌ Erro de conexão: {str(e)}")
+        return False
+
+
+
 
 def generate_random_questions(num_questions=48):
     """Gera conjunto aleatório de questões balanceadas"""
@@ -929,16 +1019,20 @@ def render_single_question(question):
     st.markdown("---")
 
 def calculate_results():
-    """Calcula resultados da avaliação"""
+    """Calcula resultados da avaliação com algoritmo aprimorado"""
     
     answers = st.session_state.assessment_answers
     questions = st.session_state.selected_questions
     
-    # Inicializa scores
-    disc_scores = {"D": 0.0, "I": 0.0, "S": 0.0, "C": 0.0}
-    disc_counts = {"D": 0, "I": 0, "S": 0, "C": 0}
+    if not answers or not questions:
+        st.error("❌ Dados da avaliação não encontrados")
+        return
     
-    # Processa respostas
+    # Inicializa scores DISC
+    disc_raw_scores = {"D": 0.0, "I": 0.0, "S": 0.0, "C": 0.0}
+    disc_question_counts = {"D": 0, "I": 0, "S": 0, "C": 0}
+    
+    # Processa cada resposta
     for q_id, answer in answers.items():
         question = next((q for q in questions if q['display_id'] == q_id), None)
         if not question:
@@ -946,41 +1040,97 @@ def calculate_results():
             
         category = question['category']
         weight = question['weight']
-        weighted_answer = answer * weight
+        
+        # Converte resposta Likert (1-5) para score ponderado
+        # Respostas 4 e 5 contribuem positivamente
+        # Respostas 1 e 2 contribuem negativamente
+        # Resposta 3 é neutra
+        if answer >= 4:
+            contribution = (answer - 3) * weight  # +1 ou +2 * weight
+        elif answer <= 2:
+            contribution = (answer - 3) * weight  # -1 ou -2 * weight
+        else:
+            contribution = 0  # Neutro
         
         if category.startswith('DISC_'):
             dim = category.split('_')[1]
-            disc_scores[dim] += weighted_answer
-            disc_counts[dim] += weight
+            disc_raw_scores[dim] += contribution
+            disc_question_counts[dim] += 1
     
-    # Calcula médias ponderadas
+    # Calcula médias por dimensão
+    disc_averages = {}
+    for dim in disc_raw_scores:
+        if disc_question_counts[dim] > 0:
+            disc_averages[dim] = disc_raw_scores[dim] / disc_question_counts[dim]
+        else:
+            disc_averages[dim] = 0
+    
+    # Normaliza para escala 0-100 (com base mínima de 10%)
+    min_score = min(disc_averages.values())
+    max_score = max(disc_averages.values())
+    
+    # Evita divisão por zero
+    if max_score == min_score:
+        disc_scores = {"D": 25, "I": 25, "S": 25, "C": 25}
+    else:
+        # Normaliza mantendo diferenças proporcionais
+        range_scores = max_score - min_score
+        disc_scores = {}
+        
+        for dim, score in disc_averages.items():
+            # Converte para escala 10-50% baseado na posição relativa
+            normalized = ((score - min_score) / range_scores) * 40 + 10
+            disc_scores[dim] = max(10, min(50, normalized))
+    
+    # Ajusta para somar 100%
+    total = sum(disc_scores.values())
     for dim in disc_scores:
-        if disc_counts[dim] > 0:
-            disc_scores[dim] = disc_scores[dim] / disc_counts[dim]
+        disc_scores[dim] = (disc_scores[dim] / total) * 100
     
-    # Normaliza DISC para soma 100%
-    disc_total = sum(disc_scores.values())
-    if disc_total > 0:
-        for key in disc_scores:
-            disc_scores[key] = (disc_scores[key] / disc_total) * 100
-    
-    # Determina MBTI simplificado
+    # Determina MBTI baseado em múltiplos fatores
     mbti_type = ""
-    mbti_type += "E" if disc_scores["I"] > 25 else "I"
-    mbti_type += "S" if disc_scores["C"] > 25 else "N"
-    mbti_type += "T" if disc_scores["D"] > 25 else "F"
-    mbti_type += "J" if disc_scores["C"] > 25 else "P"
     
-    # Calcula confiabilidade
+    # Extroversão vs Introversão (baseado em Influência)
+    mbti_type += "E" if disc_scores["I"] > 30 else "I"
+    
+    # Sensação vs Intuição (baseado em Conformidade vs outros)
+    mbti_type += "S" if disc_scores["C"] > 30 else "N"
+    
+    # Pensamento vs Sentimento (baseado em Dominância vs Estabilidade)
+    thinking_score = disc_scores["D"] + disc_scores["C"]
+    feeling_score = disc_scores["I"] + disc_scores["S"]
+    mbti_type += "T" if thinking_score > feeling_score else "F"
+    
+    # Julgamento vs Percepção (baseado em Conformidade + Dominância)
+    judging_score = disc_scores["C"] + disc_scores["D"]
+    mbti_type += "J" if judging_score > 50 else "P"
+    
+    # Calcula confiabilidade baseada na variância e consistência
     response_values = list(answers.values())
     response_variance = np.var(response_values) if len(response_values) > 1 else 0
     
-    if response_variance < 0.5:
-        reliability = 65
-    elif response_variance > 2.0:
-        reliability = 75
-    else:
-        reliability = 85 + random.randint(0, 10)
+    # Verifica consistência interna (respostas similares em categorias similares)
+    consistency_score = 0
+    for dim in ["D", "I", "S", "C"]:
+        dim_responses = []
+        for q_id, answer in answers.items():
+            question = next((q for q in questions if q['display_id'] == q_id), None)
+            if question and question['category'] == f'DISC_{dim}':
+                dim_responses.append(answer)
+        
+        if len(dim_responses) > 1:
+            dim_variance = np.var(dim_responses)
+            consistency_score += (2.0 - min(2.0, dim_variance))  # Menor variância = maior consistência
+    
+    consistency_score = consistency_score / 4  # Média das 4 dimensões
+    
+    # Calcula confiabilidade final (60-95%)
+    base_reliability = 60
+    variance_bonus = min(20, (2.0 - response_variance) * 10)  # Até +20 pontos
+    consistency_bonus = min(15, consistency_score * 7.5)  # Até +15 pontos
+    
+    reliability = int(base_reliability + variance_bonus + consistency_bonus)
+    reliability = max(60, min(95, reliability))
     
     # Tempo de conclusão
     completion_time = 0
@@ -990,12 +1140,20 @@ def calculate_results():
     # Armazena resultados
     st.session_state.results = {
         "disc": disc_scores,
+        "disc_raw": disc_raw_scores,  # Para debug
         "mbti_type": mbti_type,
         "reliability": reliability,
-        "completion_time": completion_time,
+        "completion_time": max(1, completion_time),  # Mínimo 1 minuto
         "total_questions": len(questions),
-        "response_consistency": round(response_variance, 2)
+        "response_consistency": round(consistency_score, 2),
+        "response_variance": round(response_variance, 2),
+        "answered_questions": len(answers)
     }
+    
+    # Debug info
+    st.info(f"🔍 **Debug:** DISC calculado: {disc_scores}")
+    st.info(f"🔍 **MBTI:** {mbti_type} | **Confiabilidade:** {reliability}%")
+
 
 def render_results():
     """Renderiza página de resultados"""
@@ -1206,30 +1364,144 @@ def get_mbti_description(mbti_type):
     })
 
 def generate_insights(dominant_disc, mbti_type, results):
-    """Gera insights baseados no perfil"""
+    """Gera insights personalizados baseados no perfil real"""
     
-    insights = {
-        'strengths': [
-            'Liderança natural e orientação para resultados',
-            'Capacidade de tomar decisões rapidamente',
-            'Foco em eficiência e produtividade',
-            'Habilidade de motivar equipes'
-        ],
-        'development': [
-            'Desenvolver paciência com processos mais lentos',
-            'Melhorar escuta ativa e empatia',
-            'Praticar delegação efetiva',
-            'Equilibrar assertividade com colaboração'
-        ],
-        'careers': [
-            'Gerente ou Diretor Executivo',
-            'Consultor Empresarial',
-            'Empreendedor ou Fundador',
-            'Líder de Projetos Estratégicos'
+    disc_scores = results['disc']
+    
+    # Identifica perfis dominantes (acima de 30%)
+    high_traits = [dim for dim, score in disc_scores.items() if score >= 30]
+    
+    # Insights baseados em combinações reais
+    if 'D' in high_traits and 'C' in high_traits:
+        # Dominante + Conformidade = Líder Analítico
+        strengths = [
+            "Liderança baseada em dados e análise",
+            "Tomada de decisão fundamentada",
+            "Foco em resultados com qualidade",
+            "Capacidade de planejamento estratégico"
         ]
-    }
+        development = [
+            "Desenvolver flexibilidade em situações imprevistas",
+            "Melhorar comunicação interpessoal",
+            "Praticar delegação com menos controle",
+            "Equilibrar perfeccionismo com prazos"
+        ]
+        careers = [
+            "CEO ou Diretor Geral",
+            "Consultor em Gestão",
+            "Gerente de Projetos Complexos",
+            "Analista Sênior de Negócios"
+        ]
     
-    return insights
+    elif 'I' in high_traits and 'S' in high_traits:
+        # Influência + Estabilidade = Colaborador Natural
+        strengths = [
+            "Excelente em trabalho em equipe",
+            "Comunicação empática e efetiva",
+            "Capacidade de mediar conflitos",
+            "Construção de relacionamentos duradouros"
+        ]
+        development = [
+            "Desenvolver assertividade em negociações",
+            "Praticar tomada de decisão individual",
+            "Melhorar gestão de tempo pessoal",
+            "Aumentar conforto com mudanças rápidas"
+        ]
+        careers = [
+            "Gerente de Recursos Humanos",
+            "Coordenador de Equipes",
+            "Consultor em Relacionamento",
+            "Facilitador de Treinamentos"
+        ]
+    
+    else:
+        # Perfil padrão baseado no dominante
+        if dominant_disc == 'D':
+            strengths = [
+                "Liderança natural e orientação para resultados",
+                "Capacidade de tomar decisões rapidamente",
+                "Foco em eficiência e produtividade",
+                "Habilidade de superar obstáculos"
+            ]
+            development = [
+                "Desenvolver paciência com processos colaborativos",
+                "Melhorar escuta ativa",
+                "Praticar delegação efetiva",
+                "Equilibrar assertividade com diplomacia"
+            ]
+            careers = [
+                "Diretor Executivo",
+                "Gerente de Operações",
+                "Empreendedor",
+                "Líder de Vendas"
+            ]
+        
+        elif dominant_disc == 'I':
+            strengths = [
+                "Comunicação persuasiva e carismática",
+                "Capacidade de motivar equipes",
+                "Networking e construção de relacionamentos",
+                "Adaptabilidade social"
+            ]
+            development = [
+                "Melhorar foco em detalhes",
+                "Desenvolver planejamento de longo prazo",
+                "Praticar escuta mais que fala",
+                "Aumentar consistência nas entregas"
+            ]
+            careers = [
+                "Gerente de Marketing",
+                "Coordenador de Vendas",
+                "Facilitador de Treinamentos",
+                "Relações Públicas"
+            ]
+        
+        elif dominant_disc == 'S':
+            strengths = [
+                "Confiabilidade e consistência",
+                "Trabalho em equipe colaborativo",
+                "Paciência e estabilidade emocional",
+                "Suporte efetivo aos colegas"
+            ]
+            development = [
+                "Desenvolver iniciativa pessoal",
+                "Melhorar adaptação a mudanças",
+                "Praticar liderança ativa",
+                "Aumentar assertividade"
+            ]
+            careers = [
+                "Coordenador de Suporte",
+                "Analista de Processos",
+                "Gerente de Operações",
+                "Especialista em Atendimento"
+            ]
+        
+        else:  # C dominante
+            strengths = [
+                "Atenção excepcional aos detalhes",
+                "Análise sistemática e precisa",
+                "Foco em qualidade e excelência",
+                "Pensamento crítico desenvolvido"
+            ]
+            development = [
+                "Melhorar comunicação interpessoal",
+                "Desenvolver flexibilidade",
+                "Praticar tomada de decisão rápida",
+                "Aumentar tolerância a ambiguidade"
+            ]
+            careers = [
+                "Analista de Dados",
+                "Consultor Técnico",
+                "Gerente de Qualidade",
+                "Especialista em Compliance"
+            ]
+    
+    return {
+        'strengths': strengths,
+        'development': development,
+        'careers': careers
+    }
+
 
 
 def generate_pdf_report(results):
