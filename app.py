@@ -333,15 +333,15 @@ def firebase_signin(email, password):
         return False, None, f"Erro de conexão: {str(e)}"
 
 def save_assessment_to_firestore(user_id, results):
-    """Salva avaliação no Firestore"""
+    """Salva avaliação no Firestore usando REST API"""
     
-    if not FIREBASE_PROJECT_ID or not user_id or not st.session_state.id_token:
+    if not FIREBASE_PROJECT_ID or not user_id:
         st.error("❌ Dados incompletos para salvar no Firestore")
         return False
     
     try:
-        # URL do documento do usuário no Firestore
-        doc_url = f"{FIRESTORE_BASE_URL}/users/{user_id}"
+        # URL REST do Firestore (sem autenticação complexa)
+        doc_url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/users/{user_id}?key={FIREBASE_API_KEY}"
         
         # Dados no formato Firestore
         firestore_data = {
@@ -371,15 +371,15 @@ def save_assessment_to_firestore(user_id, results):
                 },
                 "timestamp": {"timestampValue": datetime.now().isoformat() + "Z"},
                 "user_email": {"stringValue": st.session_state.user_email},
-                "version": {"stringValue": "6.0"}
+                "user_id": {"stringValue": user_id},
+                "version": {"stringValue": "7.0"}
             }
         }
         
         st.info(f"🔄 **Salvando no Firestore:** /users/{user_id}")
         
-        # Headers com token de autenticação
+        # Headers simples (sem Authorization)
         headers = {
-            "Authorization": f"Bearer {st.session_state.id_token}",
             "Content-Type": "application/json"
         }
         
@@ -387,6 +387,7 @@ def save_assessment_to_firestore(user_id, results):
         response = requests.patch(doc_url, json=firestore_data, headers=headers, timeout=30)
         
         st.info(f"📡 **Status HTTP:** {response.status_code}")
+        st.info(f"📄 **URL:** {doc_url}")
         
         if response.status_code in [200, 201]:
             st.success("✅ **SUCESSO!** Avaliação salva no Firestore!")
@@ -398,6 +399,154 @@ def save_assessment_to_firestore(user_id, results):
         
     except Exception as e:
         st.error(f"❌ **Erro geral:** {str(e)}")
+        return False
+
+def load_assessment_from_firestore(user_id):
+    """Carrega avaliação do Firestore usando REST API"""
+    
+    if not FIREBASE_PROJECT_ID or not user_id:
+        return None
+    
+    try:
+        doc_url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/users/{user_id}?key={FIREBASE_API_KEY}"
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        st.info(f"🔄 **Carregando do Firestore:** /users/{user_id}")
+        
+        response = requests.get(doc_url, headers=headers, timeout=10)
+        
+        st.info(f"📡 **Status:** {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if "fields" in data and "results" in data["fields"]:
+                # Converte formato Firestore de volta para Python
+                firestore_results = data["fields"]["results"]["mapValue"]["fields"]
+                
+                results = {
+                    "disc": {
+                        "D": float(firestore_results["disc"]["mapValue"]["fields"]["D"]["doubleValue"]),
+                        "I": float(firestore_results["disc"]["mapValue"]["fields"]["I"]["doubleValue"]),
+                        "S": float(firestore_results["disc"]["mapValue"]["fields"]["S"]["doubleValue"]),
+                        "C": float(firestore_results["disc"]["mapValue"]["fields"]["C"]["doubleValue"])
+                    },
+                    "mbti_type": firestore_results["mbti_type"]["stringValue"],
+                    "reliability": int(firestore_results["reliability"]["integerValue"]),
+                    "completion_time": int(firestore_results["completion_time"]["integerValue"]),
+                    "total_questions": int(firestore_results["total_questions"]["integerValue"]),
+                    "response_consistency": float(firestore_results["response_consistency"]["doubleValue"]),
+                    "response_variance": float(firestore_results["response_variance"]["doubleValue"]),
+                    "answered_questions": int(firestore_results["answered_questions"]["integerValue"])
+                }
+                
+                st.success("✅ **Dados carregados do Firestore!**")
+                return results
+            else:
+                st.info("📭 Nenhuma avaliação encontrada")
+                return None
+                
+        elif response.status_code == 404:
+            st.info("📭 Primeira avaliação (documento não existe ainda)")
+            return None
+        else:
+            st.error(f"❌ Erro ao carregar: {response.status_code} - {response.text}")
+            return None
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar: {str(e)}")
+        return None
+
+def test_firestore_connection():
+    """Testa conexão com Firestore usando REST API"""
+    
+    if not FIREBASE_PROJECT_ID:
+        st.error("❌ FIREBASE_PROJECT_ID não configurado")
+        return False
+    
+    if not FIREBASE_API_KEY:
+        st.error("❌ FIREBASE_API_KEY não configurado")
+        return False
+    
+    try:
+        # Testa criação de documento de teste
+        test_url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/test_connection/test_doc?key={FIREBASE_API_KEY}"
+        
+        test_data = {
+            "fields": {
+                "test": {"stringValue": "connection_test"},
+                "timestamp": {"timestampValue": datetime.now().isoformat() + "Z"},
+                "status": {"stringValue": "testing"},
+                "user_id": {"stringValue": st.session_state.user_id if st.session_state.user_id else "anonymous"}
+            }
+        }
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        st.info(f"🧪 **Testando Firestore REST API:** {test_url}")
+        
+        # Teste de escrita
+        response = requests.patch(test_url, json=test_data, headers=headers, timeout=15)
+        
+        st.info(f"📝 **Escrita:** {response.status_code}")
+        st.info(f"📄 **Response:** {response.text}")
+        
+        if response.status_code not in [200, 201]:
+            st.error(f"❌ Falha na escrita: {response.status_code} - {response.text}")
+            
+            # Tenta diagnóstico
+            if response.status_code == 403:
+                st.error("🚫 **Erro de Permissão:** Configure as regras do Firestore como públicas temporariamente")
+                st.code("""
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+                """)
+            elif response.status_code == 400:
+                st.error("📝 **Erro de Formato:** Dados mal formatados")
+            elif response.status_code == 401:
+                st.error("🔑 **Erro de Auth:** API Key inválida")
+            
+            return False
+        
+        st.success("✅ **Passo 1:** Escrita no Firestore OK")
+        
+        # Teste de leitura
+        read_response = requests.get(test_url, headers=headers, timeout=10)
+        
+        st.info(f"📖 **Leitura:** {read_response.status_code}")
+        
+        if read_response.status_code == 200:
+            read_data = read_response.json()
+            if "fields" in read_data and read_data["fields"]["test"]["stringValue"] == "connection_test":
+                st.success("✅ **Passo 2:** Leitura do Firestore OK")
+            else:
+                st.error("❌ Dados não conferem na leitura")
+                st.json(read_data)
+                return False
+        else:
+            st.error(f"❌ Falha na leitura: {read_response.status_code}")
+            return False
+        
+        # Limpa teste
+        delete_response = requests.delete(test_url, headers=headers, timeout=10)
+        st.info(f"🗑️ **Limpeza:** {delete_response.status_code}")
+        
+        st.success("✅ **FIRESTORE FUNCIONANDO PERFEITAMENTE!**")
+        return True
+        
+    except Exception as e:
+        st.error(f"❌ Erro no teste: {str(e)}")
         return False
 
 def load_assessment_from_firestore(user_id):
