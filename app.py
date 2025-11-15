@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 import random
 import time
+import requests
 
 # Configuração da página
 st.set_page_config(
