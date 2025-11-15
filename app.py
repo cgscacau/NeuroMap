@@ -26,74 +26,218 @@ FIREBASE_SIGNIN_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signI
 FIREBASE_RESET_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
 
 # CSS melhorado com melhor visibilidade
-# Substitua a seção de CSS no código por esta versão:
 
 st.markdown("""
 <style>
     .stApp {
-        background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: #f1f5f9;
     }
     
     .main-header {
-        background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+        background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
         color: white;
         padding: 3rem 2rem;
         border-radius: 20px;
         margin-bottom: 2rem;
         text-align: center;
-        box-shadow: 0 8px 32px rgba(56, 161, 105, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px rgba(30, 64, 175, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }
     
     .metric-card {
-        background: rgba(255, 255, 255, 0.95);
+        background: rgba(30, 41, 59, 0.95);
         padding: 2rem;
         border-radius: 15px;
-        border-left: 6px solid #38a169;
+        border-left: 6px solid #3b82f6;
         margin: 1rem 0;
-        box-shadow: 0 4px 20px rgba(56, 161, 105, 0.15);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         backdrop-filter: blur(10px);
+        color: #f1f5f9;
+        border: 1px solid rgba(59, 130, 246, 0.2);
     }
     
     .question-container {
-        background: rgba(255, 255, 255, 0.95);
+        background: rgba(30, 41, 59, 0.98);
         padding: 2.5rem;
         border-radius: 15px;
-        border-left: 6px solid #38a169;
+        border-left: 6px solid #3b82f6;
         margin: 2rem 0;
-        box-shadow: 0 6px 25px rgba(56, 161, 105, 0.15);
-        color: #1a202c;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+        color: #f1f5f9;
         backdrop-filter: blur(10px);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+    
+    .question-container h4 {
+        font-size: 1.3rem;
+        font-weight: 600;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+        color: #ffffff !important;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
     
     .insight-card {
-        background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+        background: rgba(30, 41, 59, 0.95);
         padding: 2rem;
         border-radius: 15px;
         margin: 1.5rem 0;
-        border-left: 6px solid #38a169;
-        box-shadow: 0 4px 20px rgba(56, 161, 105, 0.15);
-        color: #1a202c;
+        border-left: 6px solid #10b981;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        color: #f1f5f9;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    
+    .auth-container {
+        background: rgba(30, 41, 59, 0.98);
+        padding: 2.5rem;
+        border-radius: 15px;
+        margin: 1.5rem 0;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        backdrop-filter: blur(10px);
+        color: #f1f5f9;
+    }
+    
+    .strength-card {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 0.8rem 0;
+        box-shadow: 0 4px 15px rgba(5, 150, 105, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .development-card {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 0.8rem 0;
+        box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .career-card {
+        background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 0.8rem 0;
+        box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .login-required {
+        background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+        color: white;
+        padding: 3rem 2rem;
+        border-radius: 20px;
+        text-align: center;
+        margin: 2rem 0;
+        box-shadow: 0 8px 32px rgba(30, 64, 175, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .stRadio > div {
+        background: rgba(51, 65, 85, 0.9) !important;
+        padding: 1.2rem !important;
+        border-radius: 10px !important;
+        margin: 0.5rem 0 !important;
+        border: 1px solid rgba(59, 130, 246, 0.3) !important;
+        color: #f1f5f9 !important;
+    }
+    
+    .stRadio label {
+        color: #f1f5f9 !important;
+        font-weight: 500 !important;
+    }
+    
+    .stMarkdown {
+        color: #f1f5f9 !important;
+    }
+    
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    
+    .stMarkdown p {
+        color: #e2e8f0 !important;
+        line-height: 1.6 !important;
     }
     
     .stButton > button {
-        background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 0.8rem 2rem;
-        font-weight: 600;
-        box-shadow: 0 4px 15px rgba(56, 161, 105, 0.3);
-        transition: all 0.3s ease;
+        background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.8rem 2rem !important;
+        font-weight: 600 !important;
+        box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4) !important;
+        transition: all 0.3s ease !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(56, 161, 105, 0.4);
-        background: linear-gradient(135deg, #2f855a 0%, #276749 100%);
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(30, 64, 175, 0.5) !important;
+        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+    }
+    
+    /* Progresso */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%) !important;
+    }
+    
+    /* Sidebar */
+    .css-1d391kg {
+        background: rgba(30, 41, 59, 0.95) !important;
+        color: #f1f5f9 !important;
+    }
+    
+    /* Métricas */
+    [data-testid="metric-container"] {
+        background: rgba(30, 41, 59, 0.95) !important;
+        border: 1px solid rgba(59, 130, 246, 0.2) !important;
+        padding: 1rem !important;
+        border-radius: 10px !important;
+        color: #f1f5f9 !important;
+    }
+    
+    /* Inputs */
+    .stTextInput > div > div > input {
+        background: rgba(51, 65, 85, 0.9) !important;
+        color: #f1f5f9 !important;
+        border: 1px solid rgba(59, 130, 246, 0.3) !important;
+    }
+    
+    .stSelectbox > div > div > div {
+        background: rgba(51, 65, 85, 0.9) !important;
+        color: #f1f5f9 !important;
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        background: rgba(30, 41, 59, 0.9) !important;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        color: #e2e8f0 !important;
+        background: rgba(51, 65, 85, 0.5) !important;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: rgba(59, 130, 246, 0.3) !important;
+        color: #ffffff !important;
     }
 </style>
 """, unsafe_allow_html=True)
+
+
 
 
 
