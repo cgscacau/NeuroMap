@@ -1255,14 +1255,7 @@ def render_single_question(question):
     st.caption(f"{feedback_emojis[selected[0]]} {feedback_texts[selected[0]]}")
     st.markdown("---")
 
-def render_results():
-    # ... código anterior mantém igual até a seção de download ...
-    
-    # Botões de download
-    st.markdown("---")
-    st.markdown("### 📄 Gerar Relatórios")
-    
-    col1, col2, col3 = st.columns(3)
+undefined
     
     with col1:
         if st.button("📝 Relatório TXT", key="generate_txt", use_container_width=True):
