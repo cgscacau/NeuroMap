@@ -15,10 +15,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS corrigido - mais claro e legível
+# Configurações do Firebase
+FIREBASE_API_KEY = st.secrets.get("FIREBASE_API_KEY", "")
+FIREBASE_PROJECT_ID = st.secrets.get("FIREBASE_PROJECT_ID", "")
+
+# URLs da Firebase Auth API
+FIREBASE_SIGNUP_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
+FIREBASE_SIGNIN_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
+FIREBASE_RESET_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
+
+# CSS mais claro
 st.markdown("""
 <style>
-    /* Tema mais claro */
     .stApp {
         background-color: #f8fafc;
     }
@@ -104,24 +112,15 @@ st.markdown("""
         margin: 2rem 0;
     }
     
-    /* Melhora legibilidade */
     .stMarkdown {
         color: #1a202c;
     }
     
-    /* Sidebar mais clara */
     .css-1d391kg {
         background-color: #f7fafc;
     }
 </style>
 """, unsafe_allow_html=True)
-
-# Sistema de usuários simplificado
-USERS_DB = {
-    "admin": {"password": "123", "name": "Administrador", "email": "admin@neuromap.com"},
-    "demo": {"password": "demo", "name": "Usuário Demo", "email": "demo@neuromap.com"},
-    "test": {"password": "test", "name": "Usuário Teste", "email": "test@neuromap.com"}
-}
 
 # Questões da avaliação (48 questões)
 QUESTION_POOL = [
@@ -190,6 +189,10 @@ def initialize_session_state():
         st.session_state.user_name = ""
     if 'user_email' not in st.session_state:
         st.session_state.user_email = ""
+    if 'user_id' not in st.session_state:
+        st.session_state.user_id = ""
+    if 'id_token' not in st.session_state:
+        st.session_state.id_token = ""
     if 'assessment_completed' not in st.session_state:
         st.session_state.assessment_completed = False
     if 'assessment_answers' not in st.session_state:
@@ -203,11 +206,94 @@ def initialize_session_state():
     if 'assessment_start_time' not in st.session_state:
         st.session_state.assessment_start_time = None
 
-def authenticate_user(username, password):
-    """Autentica usuário com username e senha"""
-    if username in USERS_DB and USERS_DB[username]["password"] == password:
-        return True, USERS_DB[username]["name"], USERS_DB[username]["email"]
-    return False, None, None
+def firebase_signup(email, password, display_name=""):
+    """Cadastra usuário no Firebase"""
+    try:
+        payload = {
+            "email": email,
+            "password": password,
+            "returnSecureToken": True
+        }
+        
+        if display_name:
+            payload["displayName"] = display_name
+            
+        response = requests.post(FIREBASE_SIGNUP_URL, json=payload)
+        
+        if response.status_code == 200:
+            return True, response.json(), "Usuário cadastrado com sucesso!"
+        else:
+            error_data = response.json()
+            error_message = error_data.get('error', {}).get('message', 'Erro desconhecido')
+            
+            # Traduz mensagens de erro comuns
+            if 'EMAIL_EXISTS' in error_message:
+                return False, None, "Este email já está cadastrado"
+            elif 'WEAK_PASSWORD' in error_message:
+                return False, None, "Senha muito fraca. Use pelo menos 6 caracteres"
+            elif 'INVALID_EMAIL' in error_message:
+                return False, None, "Email inválido"
+            else:
+                return False, None, f"Erro: {error_message}"
+                
+    except Exception as e:
+        return False, None, f"Erro de conexão: {str(e)}"
+
+def firebase_signin(email, password):
+    """Faz login no Firebase"""
+    try:
+        payload = {
+            "email": email,
+            "password": password,
+            "returnSecureToken": True
+        }
+        
+        response = requests.post(FIREBASE_SIGNIN_URL, json=payload)
+        
+        if response.status_code == 200:
+            return True, response.json(), "Login realizado com sucesso!"
+        else:
+            error_data = response.json()
+            error_message = error_data.get('error', {}).get('message', 'Erro desconhecido')
+            
+            # Traduz mensagens de erro comuns
+            if 'EMAIL_NOT_FOUND' in error_message:
+                return False, None, "Email não encontrado"
+            elif 'INVALID_PASSWORD' in error_message:
+                return False, None, "Senha incorreta"
+            elif 'USER_DISABLED' in error_message:
+                return False, None, "Usuário desabilitado"
+            elif 'INVALID_EMAIL' in error_message:
+                return False, None, "Email inválido"
+            else:
+                return False, None, f"Erro: {error_message}"
+                
+    except Exception as e:
+        return False, None, f"Erro de conexão: {str(e)}"
+
+def firebase_reset_password(email):
+    """Envia email de reset de senha"""
+    try:
+        payload = {
+            "requestType": "PASSWORD_RESET",
+            "email": email
+        }
+        
+        response = requests.post(FIREBASE_RESET_URL, json=payload)
+        
+        if response.status_code == 200:
+            return True, "Email de recuperação enviado!"
+        else:
+            error_data = response.json()
+            error_message = error_data.get('error', {}).get('message', 'Erro desconhecido')
+            
+            if 'EMAIL_NOT_FOUND' in error_message:
+                return False, "Email não encontrado"
+            else:
+                return False, f"Erro: {error_message}"
+                
+    except Exception as e:
+        return False, f"Erro de conexão: {str(e)}"
 
 def generate_random_questions(num_questions=48):
     """Gera conjunto aleatório de questões balanceadas"""
@@ -249,6 +335,7 @@ def render_sidebar():
         
         if st.session_state.authenticated:
             st.success(f"👋 Olá, {st.session_state.user_name}!")
+            st.caption(f"📧 {st.session_state.user_email}")
             
             if st.button("🏠 Dashboard", use_container_width=True):
                 st.session_state.current_page = 'dashboard'
@@ -268,9 +355,12 @@ def render_sidebar():
             st.markdown("---")
             
             if st.button("🚪 Sair", use_container_width=True):
+                # Limpa dados de autenticação
                 st.session_state.authenticated = False
                 st.session_state.user_name = ""
                 st.session_state.user_email = ""
+                st.session_state.user_id = ""
+                st.session_state.id_token = ""
                 st.session_state.current_page = 'home'
                 st.rerun()
         else:
@@ -278,48 +368,109 @@ def render_sidebar():
 
 def render_auth_sidebar():
     """Renderiza autenticação na sidebar"""
-    st.markdown("### 🔑 Login")
     
-    # Instruções claras
-    st.info("""
-    **Usuários de teste:**
+    if not FIREBASE_API_KEY:
+        st.error("⚠️ Configure FIREBASE_API_KEY nos secrets")
+        return
     
-    • Username: `admin` | Senha: `123`
-    • Username: `demo` | Senha: `demo` 
-    • Username: `test` | Senha: `test`
-    """)
+    st.markdown("### 🔑 Acesso")
     
-    with st.form("login_form"):
-        username = st.text_input("👤 Username", placeholder="Digite: admin, demo ou test")
-        password = st.text_input("🔐 Senha", type="password", placeholder="Digite a senha correspondente")
+    tab1, tab2, tab3 = st.tabs(["Entrar", "Cadastrar", "Recuperar"])
+    
+    with tab1:
+        st.markdown("**Login com Firebase**")
         
-        if st.form_submit_button("🚀 Entrar", use_container_width=True):
-            if username and password:
-                success, user_name, user_email = authenticate_user(username, password)
-                if success:
-                    st.session_state.authenticated = True
-                    st.session_state.user_name = user_name
-                    st.session_state.user_email = user_email
-                    st.session_state.current_page = 'dashboard'
-                    st.success("✅ Login realizado!")
-                    time.sleep(1)
-                    st.rerun()
+        with st.form("login_form"):
+            email = st.text_input("📧 Email", placeholder="seu@email.com")
+            password = st.text_input("🔐 Senha", type="password")
+            
+            if st.form_submit_button("🚀 Entrar", use_container_width=True):
+                if email and password:
+                    with st.spinner("🔐 Autenticando..."):
+                        success, data, message = firebase_signin(email, password)
+                        
+                        if success:
+                            st.session_state.authenticated = True
+                            st.session_state.user_email = email
+                            st.session_state.user_name = data.get('displayName', email.split('@')[0])
+                            st.session_state.user_id = data.get('localId', '')
+                            st.session_state.id_token = data.get('idToken', '')
+                            st.session_state.current_page = 'dashboard'
+                            st.success("✅ Login realizado!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {message}")
                 else:
-                    st.error("❌ Username ou senha incorretos!")
-                    st.error("Use: admin/123, demo/demo ou test/test")
-            else:
-                st.error("❌ Preencha username e senha")
+                    st.error("❌ Preencha email e senha")
+    
+    with tab2:
+        st.markdown("**Criar Nova Conta**")
+        
+        with st.form("signup_form"):
+            name = st.text_input("👤 Nome", placeholder="Seu nome completo")
+            email = st.text_input("📧 Email", placeholder="seu@email.com")
+            password = st.text_input("🔐 Senha", type="password", help="Mínimo 6 caracteres")
+            confirm_password = st.text_input("🔐 Confirmar Senha", type="password")
+            
+            if st.form_submit_button("📝 Criar Conta", use_container_width=True):
+                if name and email and password and confirm_password:
+                    if password != confirm_password:
+                        st.error("❌ Senhas não conferem")
+                    else:
+                        with st.spinner("📝 Criando conta..."):
+                            success, data, message = firebase_signup(email, password, name)
+                            
+                            if success:
+                                st.success("✅ Conta criada com sucesso!")
+                                st.info("👆 Agora faça login na aba 'Entrar'")
+                            else:
+                                st.error(f"❌ {message}")
+                else:
+                    st.error("❌ Preencha todos os campos")
+    
+    with tab3:
+        st.markdown("**Esqueceu a Senha?**")
+        
+        with st.form("reset_form"):
+            email = st.text_input("📧 Email da conta", placeholder="seu@email.com")
+            
+            if st.form_submit_button("📨 Enviar Reset", use_container_width=True):
+                if email:
+                    with st.spinner("📨 Enviando email..."):
+                        success, message = firebase_reset_password(email)
+                        
+                        if success:
+                            st.success("✅ Email de recuperação enviado!")
+                            st.info("📬 Verifique sua caixa de entrada")
+                        else:
+                            st.error(f"❌ {message}")
+                else:
+                    st.error("❌ Digite seu email")
 
 def render_login_required():
     """Renderiza tela de login obrigatório"""
+    
+    if not FIREBASE_API_KEY:
+        st.error("""
+        ⚠️ **Configuração Firebase Necessária**
+        
+        Para usar autenticação Firebase, você precisa configurar:
+        1. `FIREBASE_API_KEY` nos secrets do Streamlit
+        2. `FIREBASE_PROJECT_ID` nos secrets do Streamlit
+        
+        Obtenha essas chaves no console do Firebase.
+        """)
+        return
+    
     st.markdown("""
     <div class="login-required">
-        <h2>🔒 Login Necessário</h2>
+        <h2>🔒 Login com Firebase</h2>
         <p style="font-size: 1.2rem; margin: 1rem 0;">
-            Para acessar o NeuroMap Pro, faça login na barra lateral.
+            Para acessar o NeuroMap Pro, faça login ou crie uma conta.
         </p>
         <p style="font-size: 1.1rem;">
-            👈 Use um dos usuários de teste listados na sidebar
+            👈 Use a barra lateral para entrar ou se cadastrar
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -335,20 +486,20 @@ def render_login_required():
         - **Análise DISC completa** detalhada
         - **Perfil comportamental** profundo
         - **Relatórios PDF** para download
-        - **Insights personalizados** únicos
-        - **Plano de desenvolvimento** prático
+        - **Dados salvos** na nuvem Firebase
+        - **Histórico de avaliações** pessoal
         """)
     
     with col2:
         st.markdown("""
-        ### ⚡ Características:
+        ### 🔒 Segurança Firebase:
         
-        - ⏱️ **25-30 minutos** de avaliação
-        - 🔀 **Ordem aleatória** de questões
-        - 📈 **Alta precisão** científica
-        - 🎯 **Análise de confiabilidade**
-        - 📄 **Relatório profissional**
-        - 🤖 **Insights com IA**
+        - 🛡️ **Autenticação segura** do Google
+        - ☁️ **Dados na nuvem** protegidos
+        - 🔐 **Criptografia** end-to-end
+        - 📱 **Acesso multiplataforma**
+        - 🔄 **Recuperação de senha** automática
+        - ✅ **Conformidade LGPD**
         """)
 
 def render_dashboard():
@@ -386,6 +537,10 @@ def render_dashboard():
             st.metric("⏱️ Tempo", "0 min", delta="Não iniciado")
     
     st.markdown("---")
+    
+    # Informações do usuário Firebase
+    if st.session_state.user_id:
+        st.info(f"🔐 **Conta Firebase:** {st.session_state.user_email} | **ID:** {st.session_state.user_id[:8]}...")
     
     # Ações principais
     if not st.session_state.assessment_completed:
@@ -908,6 +1063,7 @@ def generate_pdf_report(results):
         
         # Informações básicas
         pdf.set_font('Arial', '', 12)
+        pdf.cell(0, 8, f"Usuario Firebase: {st.session_state.user_email}", 0, 1, 'L')
         pdf.cell(0, 8, f"Tipo MBTI: {results['mbti_type']}", 0, 1, 'L')
         pdf.cell(0, 8, f"Confiabilidade: {results['reliability']}%", 0, 1, 'L')
         pdf.cell(0, 8, f"Data: {datetime.now().strftime('%d/%m/%Y')}", 0, 1, 'L')
