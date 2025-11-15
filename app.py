@@ -26,20 +26,22 @@ FIREBASE_SIGNIN_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signI
 FIREBASE_RESET_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
 
 # CSS melhorado com melhor visibilidade
+# Substitua a seção de CSS no código por esta versão:
+
 st.markdown("""
 <style>
     .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
     }
     
     .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%);
         color: white;
         padding: 3rem 2rem;
         border-radius: 20px;
         margin-bottom: 2rem;
         text-align: center;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 8px 32px rgba(49, 130, 206, 0.3);
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
@@ -47,9 +49,9 @@ st.markdown("""
         background: rgba(255, 255, 255, 0.95);
         padding: 2rem;
         border-radius: 15px;
-        border-left: 6px solid #667eea;
+        border-left: 6px solid #3182ce;
         margin: 1rem 0;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 20px rgba(49, 130, 206, 0.15);
         backdrop-filter: blur(10px);
     }
     
@@ -57,9 +59,9 @@ st.markdown("""
         background: rgba(255, 255, 255, 0.95);
         padding: 2.5rem;
         border-radius: 15px;
-        border-left: 6px solid #667eea;
+        border-left: 6px solid #3182ce;
         margin: 2rem 0;
-        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 6px 25px rgba(49, 130, 206, 0.15);
         color: #1a202c;
         backdrop-filter: blur(10px);
     }
@@ -73,12 +75,12 @@ st.markdown("""
     }
     
     .insight-card {
-        background: linear-gradient(135deg, #e6fffa 0%, #f0fff4 100%);
+        background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
         padding: 2rem;
         border-radius: 15px;
         margin: 1.5rem 0;
-        border-left: 6px solid #38b2ac;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        border-left: 6px solid #3182ce;
+        box-shadow: 0 4px 20px rgba(49, 130, 206, 0.15);
         color: #1a202c;
     }
     
@@ -87,18 +89,18 @@ st.markdown("""
         padding: 2.5rem;
         border-radius: 15px;
         margin: 1.5rem 0;
-        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 6px 25px rgba(49, 130, 206, 0.15);
         border: 1px solid rgba(255, 255, 255, 0.2);
         backdrop-filter: blur(10px);
     }
     
     .strength-card {
-        background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
         color: white;
         padding: 1.5rem;
         border-radius: 12px;
         margin: 0.8rem 0;
-        box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+        box-shadow: 0 4px 15px rgba(56, 161, 105, 0.3);
     }
     
     .development-card {
@@ -111,52 +113,36 @@ st.markdown("""
     }
     
     .career-card {
-        background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);
+        background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);
         color: white;
         padding: 1.5rem;
         border-radius: 12px;
         margin: 0.8rem 0;
-        box-shadow: 0 4px 15px rgba(159, 122, 234, 0.3);
+        box-shadow: 0 4px 15px rgba(128, 90, 213, 0.3);
     }
     
     .login-required {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%);
         color: white;
         padding: 3rem 2rem;
         border-radius: 20px;
         text-align: center;
         margin: 2rem 0;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    }
-    
-    .nav-button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        padding: 1rem 2rem;
-        border-radius: 12px;
-        font-weight: 600;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        transition: all 0.3s ease;
-    }
-    
-    .nav-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 8px 32px rgba(49, 130, 206, 0.3);
     }
     
     .stRadio > div {
-        background: rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.9);
         padding: 1rem;
         border-radius: 10px;
         margin: 0.5rem 0;
+        border: 1px solid #e2e8f0;
     }
     
     .stMarkdown {
         color: #1a202c;
     }
     
-    /* Melhor visibilidade para texto */
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
         color: #2d3748 !important;
         font-weight: 700;
@@ -167,24 +153,30 @@ st.markdown("""
         line-height: 1.6;
     }
     
-    /* Botões mais visíveis */
     .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%);
         color: white;
         border: none;
         border-radius: 12px;
         padding: 0.8rem 2rem;
         font-weight: 600;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 15px rgba(49, 130, 206, 0.3);
         transition: all 0.3s ease;
     }
     
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 6px 20px rgba(49, 130, 206, 0.4);
+        background: linear-gradient(135deg, #2c5aa0 0%, #2a4d8d 100%);
+    }
+    
+    /* Progresso */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #3182ce 0%, #63b3ed 100%);
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 # Questões da avaliação (48 questões)
 QUESTION_POOL = [
