@@ -1084,9 +1084,8 @@ def render_assessment():
             st.session_state.question_page = 0
             st.rerun()
 
-
 def render_single_question(question):
-    """Renderiza uma questão individual com auto-avanço"""
+    """Renderiza uma questão individual com auto-avanço inteligente"""
     
     st.markdown(f"""
     <div class="question-container">
@@ -1118,39 +1117,84 @@ def render_single_question(question):
     
     # Armazena resposta
     old_value = st.session_state.assessment_answers.get(question['display_id'], 3)
-    st.session_state.assessment_answers[question['display_id']] = selected[0]
+    new_value = selected[0]
+    st.session_state.assessment_answers[question['display_id']] = new_value
     
-    # Verifica se mudou a resposta para trigger auto-avanço
-    if old_value != selected[0] and st.session_state.selected_questions:
+    # ===== LÓGICA DE AUTO-AVANÇO CORRIGIDA =====
+    
+    # Só verifica auto-avanço se:
+    # 1. A resposta mudou de verdade (não é valor inicial)
+    # 2. A mudança não foi para o valor padrão (3)
+    # 3. Existe questões selecionadas
+    should_check_advance = (
+        old_value != new_value and  # Resposta mudou
+        new_value != 3 and         # Não mudou para neutro
+        old_value != 3 and         # Não era neutro antes
+        st.session_state.selected_questions  # Questões existem
+    )
+    
+    if should_check_advance:
         try:
-            # Verifica se todas as questões da página atual foram respondidas
+            # Informações da paginação
             questions_per_page = 6
             current_page = st.session_state.question_page
             total_questions = len(st.session_state.selected_questions)
             total_pages = (total_questions + questions_per_page - 1) // questions_per_page
             
+            # Questões da página atual
             start_idx = current_page * questions_per_page
             end_idx = min(start_idx + questions_per_page, total_questions)
             
-            # Verifica se todas as questões da página atual foram respondidas
-            page_complete = True
+            # Verifica quantas questões da página foram realmente respondidas (não neutro)
+            page_answered = 0
+            page_total = 0
+            
             for i in range(start_idx, end_idx):
                 q = st.session_state.selected_questions[i]
-                if q['display_id'] not in st.session_state.assessment_answers:
-                    page_complete = False
-                    break
-            
-            # Se página completa e não é a última página, avança automaticamente
-            if page_complete and current_page < total_pages - 1:
-                st.session_state.question_page += 1
-                st.success("✅ Página concluída! Avançando automaticamente...")
-                time.sleep(0.5)  # Pequena pausa para feedback visual
-                st.rerun()
+                page_total += 1
                 
+                # Considera respondida se não for neutro (3)
+                answer = st.session_state.assessment_answers.get(q['display_id'], 3)
+                if answer != 3:
+                    page_answered += 1
+            
+            # Só avança se TODAS as questões da página foram respondidas (não neutro)
+            page_complete = (page_answered == page_total)
+            
+            # Debug (remover depois)
+            st.caption(f"📊 Página atual: {page_answered}/{page_total} respondidas (não neutras)")
+            
+            # Avança automaticamente apenas se:
+            # 1. Página realmente completa
+            # 2. Não é a última página
+            # 3. Pelo menos 4 questões foram respondidas (evita avanço muito cedo)
+            if page_complete and current_page < total_pages - 1 and page_answered >= 4:
+                # Pequeno delay para mostrar feedback
+                st.success("✅ Página concluída! Avançando em 2 segundos...")
+                
+                # Usa session state para controlar o avanço
+                if 'auto_advance_triggered' not in st.session_state:
+                    st.session_state.auto_advance_triggered = True
+                    
+                    # Agendar avanço após delay
+                    import threading
+                    def advance_page():
+                        time.sleep(2)
+                        if st.session_state.auto_advance_triggered:
+                            st.session_state.question_page += 1
+                            st.session_state.auto_advance_triggered = False
+                            st.rerun()
+                    
+                    thread = threading.Thread(target=advance_page)
+                    thread.daemon = True
+                    thread.start()
+                    
         except Exception as e:
             # Se der erro no auto-avanço, apenas continua normalmente
+            st.caption(f"⚠️ Auto-avanço desabilitado: {str(e)}")
             pass
     
+    # Feedback visual
     feedback_emojis = {1: "🔴", 2: "🟠", 3: "🟡", 4: "🟢", 5: "🟢"}
     feedback_texts = {
         1: "Discordo totalmente",
@@ -1160,8 +1204,10 @@ def render_single_question(question):
         5: "Concordo totalmente"
     }
     
-    st.caption(f"{feedback_emojis[selected[0]]} {feedback_texts[selected[0]]}")
+    st.caption(f"{feedback_emojis[new_value]} {feedback_texts[new_value]}")
     st.markdown("---")
+
+
 
 
 
