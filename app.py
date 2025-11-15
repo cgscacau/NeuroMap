@@ -18,14 +18,14 @@ st.set_page_config(
 # Configurações do Firebase
 FIREBASE_API_KEY = st.secrets.get("FIREBASE_API_KEY", "")
 FIREBASE_PROJECT_ID = st.secrets.get("FIREBASE_PROJECT_ID", "")
-FIREBASE_DATABASE_URL = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com"
 
-# URLs da Firebase Auth API
+# URLs do Firebase
 FIREBASE_SIGNUP_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
 FIREBASE_SIGNIN_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
 FIREBASE_RESET_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
+FIRESTORE_BASE_URL = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents"
 
-# CSS com melhor contraste
+# CSS
 st.markdown("""
 <style>
     .stApp {
@@ -42,18 +42,6 @@ st.markdown("""
         text-align: center;
         box-shadow: 0 8px 32px rgba(30, 64, 175, 0.4);
         border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    
-    .metric-card {
-        background: rgba(30, 41, 59, 0.95);
-        padding: 2rem;
-        border-radius: 15px;
-        border-left: 6px solid #3b82f6;
-        margin: 1rem 0;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(10px);
-        color: #f1f5f9;
-        border: 1px solid rgba(59, 130, 246, 0.2);
     }
     
     .question-container {
@@ -88,15 +76,68 @@ st.markdown("""
         border: 1px solid rgba(16, 185, 129, 0.2);
     }
     
-    .auth-container {
-        background: rgba(30, 41, 59, 0.98);
-        padding: 2.5rem;
-        border-radius: 15px;
-        margin: 1.5rem 0;
-        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(59, 130, 246, 0.2);
-        backdrop-filter: blur(10px);
-        color: #f1f5f9;
+    .stRadio > div {
+        background: rgba(51, 65, 85, 0.9) !important;
+        padding: 1.2rem !important;
+        border-radius: 10px !important;
+        margin: 0.5rem 0 !important;
+        border: 1px solid rgba(59, 130, 246, 0.3) !important;
+        color: #f1f5f9 !important;
+    }
+    
+    .stRadio label {
+        color: #f1f5f9 !important;
+        font-weight: 500 !important;
+    }
+    
+    .stMarkdown {
+        color: #f1f5f9 !important;
+    }
+    
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    
+    .stMarkdown p {
+        color: #e2e8f0 !important;
+        line-height: 1.6 !important;
+    }
+    
+    .stButton > button {
+        background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.8rem 2rem !important;
+        font-weight: 600 !important;
+        box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(30, 64, 175, 0.5) !important;
+        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+    }
+    
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%) !important;
+    }
+    
+    [data-testid="metric-container"] {
+        background: rgba(30, 41, 59, 0.95) !important;
+        border: 1px solid rgba(59, 130, 246, 0.2) !important;
+        padding: 1rem !important;
+        border-radius: 10px !important;
+        color: #f1f5f9 !important;
+    }
+    
+    .stTextInput > div > div > input {
+        background: rgba(51, 65, 85, 0.9) !important;
+        color: #f1f5f9 !important;
+        border: 1px solid rgba(59, 130, 246, 0.3) !important;
     }
     
     .strength-card {
@@ -139,104 +180,10 @@ st.markdown("""
         box-shadow: 0 8px 32px rgba(30, 64, 175, 0.4);
         border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    
-    .stRadio > div {
-        background: rgba(51, 65, 85, 0.9) !important;
-        padding: 1.2rem !important;
-        border-radius: 10px !important;
-        margin: 0.5rem 0 !important;
-        border: 1px solid rgba(59, 130, 246, 0.3) !important;
-        color: #f1f5f9 !important;
-    }
-    
-    .stRadio label {
-        color: #f1f5f9 !important;
-        font-weight: 500 !important;
-    }
-    
-    .stMarkdown {
-        color: #f1f5f9 !important;
-    }
-    
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    }
-    
-    .stMarkdown p {
-        color: #e2e8f0 !important;
-        line-height: 1.6 !important;
-    }
-    
-    .stButton > button {
-        background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 0.8rem 2rem !important;
-        font-weight: 600 !important;
-        box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4) !important;
-        transition: all 0.3s ease !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(30, 64, 175, 0.5) !important;
-        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
-    }
-    
-    /* Progresso */
-    .stProgress > div > div > div {
-        background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%) !important;
-    }
-    
-    /* Sidebar */
-    .css-1d391kg {
-        background: rgba(30, 41, 59, 0.95) !important;
-        color: #f1f5f9 !important;
-    }
-    
-    /* Métricas */
-    [data-testid="metric-container"] {
-        background: rgba(30, 41, 59, 0.95) !important;
-        border: 1px solid rgba(59, 130, 246, 0.2) !important;
-        padding: 1rem !important;
-        border-radius: 10px !important;
-        color: #f1f5f9 !important;
-    }
-    
-    /* Inputs */
-    .stTextInput > div > div > input {
-        background: rgba(51, 65, 85, 0.9) !important;
-        color: #f1f5f9 !important;
-        border: 1px solid rgba(59, 130, 246, 0.3) !important;
-    }
-    
-    .stSelectbox > div > div > div {
-        background: rgba(51, 65, 85, 0.9) !important;
-        color: #f1f5f9 !important;
-    }
-    
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        background: rgba(30, 41, 59, 0.9) !important;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        color: #e2e8f0 !important;
-        background: rgba(51, 65, 85, 0.5) !important;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: rgba(59, 130, 246, 0.3) !important;
-        color: #ffffff !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# Questões da avaliação (48 questões)
+# Questões da avaliação
 QUESTION_POOL = [
     # DISC - Dominância (D) - 12 questões
     {"id": 1, "text": "Gosto de assumir a responsabilidade quando algo importante precisa ser feito.", "category": "DISC_D", "weight": 0.9},
@@ -321,8 +268,6 @@ def initialize_session_state():
         st.session_state.assessment_start_time = None
     if 'question_page' not in st.session_state:
         st.session_state.question_page = 0
-    if 'confirm_restart' not in st.session_state:
-        st.session_state.confirm_restart = False
 
 def firebase_signup(email, password, display_name=""):
     """Cadastra usuário no Firebase"""
@@ -387,149 +332,199 @@ def firebase_signin(email, password):
     except Exception as e:
         return False, None, f"Erro de conexão: {str(e)}"
 
-def firebase_reset_password(email):
-    """Envia email de reset de senha"""
-    try:
-        payload = {
-            "requestType": "PASSWORD_RESET",
-            "email": email
-        }
-        
-        response = requests.post(FIREBASE_RESET_URL, json=payload, timeout=10)
-        
-        if response.status_code == 200:
-            return True, "Email de recuperação enviado!"
-        else:
-            error_data = response.json()
-            error_message = error_data.get('error', {}).get('message', 'Erro desconhecido')
-            
-            if 'EMAIL_NOT_FOUND' in error_message:
-                return False, "Email não encontrado"
-            else:
-                return False, f"Erro: {error_message}"
-                
-    except Exception as e:
-        return False, f"Erro de conexão: {str(e)}"
-
-def save_assessment_to_firebase(user_id, results):
-    """Salva avaliação no Firebase com método simplificado"""
+def save_assessment_to_firestore(user_id, results):
+    """Salva avaliação no Firestore"""
     
-    if not FIREBASE_PROJECT_ID:
-        st.error("❌ FIREBASE_PROJECT_ID não configurado")
-        return False
-    
-    if not user_id:
-        st.error("❌ User ID não encontrado")
+    if not FIREBASE_PROJECT_ID or not user_id or not st.session_state.id_token:
+        st.error("❌ Dados incompletos para salvar no Firestore")
         return False
     
     try:
-        # URL simplificada sem autenticação
-        url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/assessments/{user_id}.json"
+        # URL do documento do usuário no Firestore
+        doc_url = f"{FIRESTORE_BASE_URL}/users/{user_id}"
         
-        data = {
-            "results": results,
-            "timestamp": datetime.now().isoformat(),
-            "user_id": user_id,
-            "user_email": st.session_state.user_email,
-            "version": "3.0"
+        # Dados no formato Firestore
+        firestore_data = {
+            "fields": {
+                "results": {
+                    "mapValue": {
+                        "fields": {
+                            "disc": {
+                                "mapValue": {
+                                    "fields": {
+                                        "D": {"doubleValue": results["disc"]["D"]},
+                                        "I": {"doubleValue": results["disc"]["I"]},
+                                        "S": {"doubleValue": results["disc"]["S"]},
+                                        "C": {"doubleValue": results["disc"]["C"]}
+                                    }
+                                }
+                            },
+                            "mbti_type": {"stringValue": results["mbti_type"]},
+                            "reliability": {"integerValue": str(results["reliability"])},
+                            "completion_time": {"integerValue": str(results["completion_time"])},
+                            "total_questions": {"integerValue": str(results["total_questions"])},
+                            "response_consistency": {"doubleValue": results["response_consistency"]},
+                            "response_variance": {"doubleValue": results["response_variance"]},
+                            "answered_questions": {"integerValue": str(results["answered_questions"])}
+                        }
+                    }
+                },
+                "timestamp": {"timestampValue": datetime.now().isoformat() + "Z"},
+                "user_email": {"stringValue": st.session_state.user_email},
+                "version": {"stringValue": "6.0"}
+            }
         }
         
-        st.write(f"🔄 **Salvando em:** {url}")
-        st.write(f"📊 **Dados:** {len(str(data))} caracteres")
+        st.info(f"🔄 **Salvando no Firestore:** /users/{user_id}")
         
-        # Usando requests.put sem autenticação (Firebase public rules)
-        response = requests.put(url, json=data, timeout=20)
+        # Headers com token de autenticação
+        headers = {
+            "Authorization": f"Bearer {st.session_state.id_token}",
+            "Content-Type": "application/json"
+        }
         
-        st.write(f"📡 **Status HTTP:** {response.status_code}")
-        st.write(f"📄 **Response:** {response.text}")
+        # Requisição PATCH para criar/atualizar documento
+        response = requests.patch(doc_url, json=firestore_data, headers=headers, timeout=30)
         
-        if response.status_code == 200:
-            st.success("✅ Dados salvos no Firebase com sucesso!")
+        st.info(f"📡 **Status HTTP:** {response.status_code}")
+        
+        if response.status_code in [200, 201]:
+            st.success("✅ **SUCESSO!** Avaliação salva no Firestore!")
             return True
         else:
-            st.error(f"❌ Erro HTTP {response.status_code}: {response.text}")
+            st.error(f"❌ **Erro Firestore:** {response.status_code}")
+            st.error(f"**Response:** {response.text}")
             return False
         
     except Exception as e:
-        st.error(f"❌ Erro ao salvar: {str(e)}")
+        st.error(f"❌ **Erro geral:** {str(e)}")
         return False
 
-def load_assessment_from_firebase(user_id):
-    """Carrega avaliação do Firebase"""
+def load_assessment_from_firestore(user_id):
+    """Carrega avaliação do Firestore"""
     
-    if not FIREBASE_PROJECT_ID or not user_id:
+    if not FIREBASE_PROJECT_ID or not user_id or not st.session_state.id_token:
         return None
     
     try:
-        url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/assessments/{user_id}.json"
+        doc_url = f"{FIRESTORE_BASE_URL}/users/{user_id}"
         
-        st.write(f"🔄 **Carregando de:** {url}")
+        headers = {
+            "Authorization": f"Bearer {st.session_state.id_token}",
+            "Content-Type": "application/json"
+        }
         
-        response = requests.get(url, timeout=10)
+        st.info(f"🔄 **Carregando do Firestore:** /users/{user_id}")
         
-        st.write(f"📡 **Status HTTP:** {response.status_code}")
+        response = requests.get(doc_url, headers=headers, timeout=10)
+        
+        st.info(f"📡 **Status:** {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
             
-            if data and "results" in data:
-                st.success(f"✅ Dados encontrados! Timestamp: {data.get('timestamp', 'N/A')}")
-                return data["results"]
+            if "fields" in data and "results" in data["fields"]:
+                # Converte formato Firestore de volta para Python
+                firestore_results = data["fields"]["results"]["mapValue"]["fields"]
+                
+                results = {
+                    "disc": {
+                        "D": float(firestore_results["disc"]["mapValue"]["fields"]["D"]["doubleValue"]),
+                        "I": float(firestore_results["disc"]["mapValue"]["fields"]["I"]["doubleValue"]),
+                        "S": float(firestore_results["disc"]["mapValue"]["fields"]["S"]["doubleValue"]),
+                        "C": float(firestore_results["disc"]["mapValue"]["fields"]["C"]["doubleValue"])
+                    },
+                    "mbti_type": firestore_results["mbti_type"]["stringValue"],
+                    "reliability": int(firestore_results["reliability"]["integerValue"]),
+                    "completion_time": int(firestore_results["completion_time"]["integerValue"]),
+                    "total_questions": int(firestore_results["total_questions"]["integerValue"]),
+                    "response_consistency": float(firestore_results["response_consistency"]["doubleValue"]),
+                    "response_variance": float(firestore_results["response_variance"]["doubleValue"]),
+                    "answered_questions": int(firestore_results["answered_questions"]["integerValue"])
+                }
+                
+                st.success("✅ **Dados carregados do Firestore!**")
+                return results
             else:
-                st.info("📭 Nenhuma avaliação anterior encontrada")
+                st.info("📭 Nenhuma avaliação encontrada")
                 return None
+                
+        elif response.status_code == 404:
+            st.info("📭 Primeira avaliação (documento não existe ainda)")
+            return None
         else:
-            st.warning(f"⚠️ Erro ao carregar: {response.status_code}")
+            st.error(f"❌ Erro ao carregar: {response.status_code} - {response.text}")
             return None
         
     except Exception as e:
         st.error(f"❌ Erro ao carregar: {str(e)}")
         return None
 
-def test_firebase_connection():
-    """Testa conexão com Firebase"""
+def test_firestore_connection():
+    """Testa conexão com Firestore"""
     
     if not FIREBASE_PROJECT_ID:
         st.error("❌ FIREBASE_PROJECT_ID não configurado")
         return False
     
+    if not st.session_state.id_token:
+        st.error("❌ Token de autenticação não encontrado. Faça login novamente.")
+        return False
+    
     try:
-        # Testa acesso básico
-        url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/.json"
+        # Testa criação de documento de teste
+        test_url = f"{FIRESTORE_BASE_URL}/test_connection/test_doc"
         
-        st.write(f"🧪 **Testando:** {url}")
+        test_data = {
+            "fields": {
+                "test": {"stringValue": "connection_test"},
+                "timestamp": {"timestampValue": datetime.now().isoformat() + "Z"},
+                "status": {"stringValue": "testing"}
+            }
+        }
         
-        response = requests.get(url, timeout=10)
+        headers = {
+            "Authorization": f"Bearer {st.session_state.id_token}",
+            "Content-Type": "application/json"
+        }
         
-        st.write(f"📡 **Status:** {response.status_code}")
-        st.write(f"📄 **Response:** {response.text}")
+        st.info(f"🧪 **Testando Firestore:** {test_url}")
         
-        if response.status_code == 200:
-            st.success("✅ Firebase acessível!")
-            
-            # Testa escrita
-            test_url = f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com/test.json"
-            test_data = {"test": "connection", "timestamp": datetime.now().isoformat()}
-            
-            write_response = requests.put(test_url, json=test_data, timeout=10)
-            
-            st.write(f"📝 **Teste de escrita:** {write_response.status_code}")
-            
-            if write_response.status_code == 200:
-                st.success("✅ Escrita funcionando!")
-                
-                # Remove o teste
-                requests.delete(test_url, timeout=10)
-                return True
+        # Teste de escrita
+        response = requests.patch(test_url, json=test_data, headers=headers, timeout=15)
+        
+        st.info(f"📝 **Escrita:** {response.status_code}")
+        
+        if response.status_code not in [200, 201]:
+            st.error(f"❌ Falha na escrita: {response.status_code} - {response.text}")
+            return False
+        
+        st.success("✅ **Passo 1:** Escrita no Firestore OK")
+        
+        # Teste de leitura
+        read_response = requests.get(test_url, headers=headers, timeout=10)
+        
+        st.info(f"📖 **Leitura:** {read_response.status_code}")
+        
+        if read_response.status_code == 200:
+            read_data = read_response.json()
+            if "fields" in read_data and read_data["fields"]["test"]["stringValue"] == "connection_test":
+                st.success("✅ **Passo 2:** Leitura do Firestore OK")
             else:
-                st.error(f"❌ Erro na escrita: {write_response.status_code}")
+                st.error("❌ Dados não conferem na leitura")
                 return False
         else:
-            st.error(f"❌ Firebase inacessível: {response.status_code}")
+            st.error(f"❌ Falha na leitura: {read_response.status_code}")
             return False
-            
+        
+        # Limpa teste
+        requests.delete(test_url, headers=headers, timeout=10)
+        
+        st.success("✅ **FIRESTORE FUNCIONANDO PERFEITAMENTE!**")
+        return True
+        
     except Exception as e:
-        st.error(f"❌ Erro de conexão: {str(e)}")
+        st.error(f"❌ Erro no teste: {str(e)}")
         return False
 
 def generate_random_questions(num_questions=48):
@@ -558,16 +553,16 @@ def calculate_results():
         st.error("❌ Dados da avaliação não encontrados")
         return
     
-    # Debug: mostra algumas respostas
-    st.write("🔍 **Debug - Primeiras 5 respostas:**")
+    # Debug das respostas
+    st.info("🔍 **Debug - Primeiras 5 respostas:**")
     sample_answers = dict(list(answers.items())[:5])
-    st.write(sample_answers)
+    st.json(sample_answers)
     
     # Inicializa scores DISC
     disc_raw_scores = {"D": 0.0, "I": 0.0, "S": 0.0, "C": 0.0}
     disc_question_counts = {"D": 0, "I": 0, "S": 0, "C": 0}
     
-    # Processa cada resposta
+    # Processa cada resposta com algoritmo corrigido
     for q_id, answer in answers.items():
         question = next((q for q in questions if q['display_id'] == q_id), None)
         if not question:
@@ -576,29 +571,25 @@ def calculate_results():
         category = question['category']
         weight = question['weight']
         
-        # NOVO: Sistema de pontuação mais diferenciado
-        # Respostas 4-5 = forte concordância (pontos positivos)
-        # Respostas 1-2 = forte discordância (pontos negativos)  
-        # Resposta 3 = neutro (zero pontos)
-        
+        # Sistema de pontuação mais diferenciado
         if answer == 5:
-            points = 2.0 * weight  # Concordo totalmente
+            points = 2.0 * weight    # Concordo totalmente
         elif answer == 4:
-            points = 1.0 * weight  # Concordo parcialmente
+            points = 1.0 * weight    # Concordo parcialmente
         elif answer == 3:
-            points = 0.0           # Neutro
+            points = 0.0             # Neutro
         elif answer == 2:
-            points = -1.0 * weight # Discordo parcialmente
+            points = -1.0 * weight   # Discordo parcialmente
         else:  # answer == 1
-            points = -2.0 * weight # Discordo totalmente
+            points = -2.0 * weight   # Discordo totalmente
         
         if category.startswith('DISC_'):
             dim = category.split('_')[1]
             disc_raw_scores[dim] += points
             disc_question_counts[dim] += 1
     
-    st.write("🔍 **Debug - Scores brutos:**")
-    st.write(disc_raw_scores)
+    st.info("🔍 **Debug - Scores brutos por dimensão:**")
+    st.json(disc_raw_scores)
     
     # Calcula médias por dimensão
     disc_averages = {}
@@ -608,78 +599,63 @@ def calculate_results():
         else:
             disc_averages[dim] = 0
     
-    st.write("🔍 **Debug - Médias:**")
-    st.write(disc_averages)
+    st.info("🔍 **Debug - Médias por dimensão:**")
+    st.json(disc_averages)
     
-    # NOVO: Converte para escala 0-100 de forma mais realista
-    # Encontra o range dos scores
+    # Converte para escala 0-100 de forma mais realista
     min_avg = min(disc_averages.values())
     max_avg = max(disc_averages.values())
     
-    # Se todos iguais, distribui igualmente
-    if max_avg == min_avg:
+    if abs(max_avg - min_avg) < 0.1:  # Valores muito próximos
         disc_scores = {"D": 25, "I": 25, "S": 25, "C": 25}
+        st.warning("⚠️ **Perfil equilibrado detectado** - todas as dimensões similares")
     else:
-        # Converte para escala 5-45 (base + variação)
-        base_score = 5  # Score mínimo
-        range_score = 40  # Range máximo (45-5)
+        # Converte para escala 5-45 (mais realista)
+        base_score = 5
+        range_score = 40
         total_range = max_avg - min_avg
         
         disc_scores = {}
         for dim, avg in disc_averages.items():
-            if total_range > 0:
-                normalized = ((avg - min_avg) / total_range) * range_score + base_score
-            else:
-                normalized = 25
+            normalized = ((avg - min_avg) / total_range) * range_score + base_score
             disc_scores[dim] = max(5, min(45, normalized))
     
-    # Ajusta para somar 100%
+    # Normaliza para somar 100%
     total = sum(disc_scores.values())
     if total > 0:
         for dim in disc_scores:
             disc_scores[dim] = (disc_scores[dim] / total) * 100
     
-    st.write("🔍 **Debug - Scores finais:**")
-    st.write(disc_scores)
+    st.success("✅ **Scores DISC finais:**")
+    st.json(disc_scores)
     
-    # NOVO: MBTI baseado nos scores DISC reais
+    # MBTI baseado nos scores DISC corrigidos
     mbti_type = ""
     
-    # Extroversão (E) vs Introversão (I)
-    # Alto I (Influência) = Extrovertido
-    # Alto S (Estabilidade) = Introvertido
+    # Extroversão vs Introversão
     extraversion_score = disc_scores["I"] - disc_scores["S"]
     mbti_type += "E" if extraversion_score > 0 else "I"
     
-    # Sensação (S) vs Intuição (N)  
-    # Alto C (Conformidade) = Sensação (foco em detalhes)
-    # Alto D (Dominância) = Intuição (foco no big picture)
+    # Sensação vs Intuição
     sensing_score = disc_scores["C"] - disc_scores["D"]
     mbti_type += "S" if sensing_score > 0 else "N"
     
-    # Pensamento (T) vs Sentimento (F)
-    # Alto D+C = Pensamento (lógica)
-    # Alto I+S = Sentimento (pessoas)
+    # Pensamento vs Sentimento
     thinking_score = (disc_scores["D"] + disc_scores["C"]) - (disc_scores["I"] + disc_scores["S"])
     mbti_type += "T" if thinking_score > 0 else "F"
     
-    # Julgamento (J) vs Percepção (P)
-    # Alto C+S = Julgamento (estrutura)
-    # Alto D+I = Percepção (flexibilidade)
+    # Julgamento vs Percepção
     judging_score = (disc_scores["C"] + disc_scores["S"]) - (disc_scores["D"] + disc_scores["I"])
     mbti_type += "J" if judging_score > 0 else "P"
     
-    # Calcula confiabilidade baseada na diferenciação
+    # Confiabilidade baseada na diferenciação
     response_values = list(answers.values())
     response_variance = np.var(response_values) if len(response_values) > 1 else 0
-    
-    # Maior diferenciação entre dimensões = maior confiabilidade
     disc_variance = np.var(list(disc_scores.values()))
     
-    # Confiabilidade: 70-95% baseada na variância das respostas e diferenciação
     base_reliability = 70
-    variance_bonus = min(15, response_variance * 5)  # Variância nas respostas
-    differentiation_bonus = min(10, disc_variance * 2)  # Diferenciação entre dimensões
+    variance_bonus = min(15, response_variance * 5)
+    differentiation_bonus = min(10, disc_variance * 2)
     
     reliability = int(base_reliability + variance_bonus + differentiation_bonus)
     reliability = max(70, min(95, reliability))
@@ -697,60 +673,13 @@ def calculate_results():
         "reliability": reliability,
         "completion_time": max(1, completion_time),
         "total_questions": len(questions),
-        "response_consistency": round(np.var(list(disc_scores.values())), 2),
+        "response_consistency": round(disc_variance, 2),
         "response_variance": round(response_variance, 2),
         "answered_questions": len(answers)
     }
     
-    st.success(f"✅ **Novo cálculo:** DISC dominante = {max(disc_scores, key=disc_scores.get)} | MBTI = {mbti_type}")
-
-def create_simple_charts():
-    """Cria gráficos simples sem Plotly"""
-    
-    results = st.session_state.get('results')
-    if not results:
-        return
-    
-    disc_scores = results['disc']
-    
-    # Gráfico de barras simples
-    st.markdown("### 📊 Perfil DISC")
-    
-    for dim, score in disc_scores.items():
-        # Determina cor baseada no score
-        if score >= 35:
-            color = "#48bb78"  # Verde
-        elif score >= 25:
-            color = "#ed8936"  # Laranja  
-        else:
-            color = "#e53e3e"  # Vermelho
-            
-        # Cria barra visual
-        bar_width = int((score / 100) * 50)  # Max 50 caracteres
-        bar = "█" * bar_width + "░" * (50 - bar_width)
-        
-        st.markdown(f"""
-        <div style="background: {color}20; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; 
-                    border-left: 4px solid {color};">
-            <strong>{dim}: {score:.1f}%</strong><br>
-            <div style="font-family: monospace; font-size: 0.8rem;">
-                {bar}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Métricas adicionais
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        dominant = max(disc_scores, key=disc_scores.get)
-        st.metric("🎯 Perfil Dominante", dominant, f"{disc_scores[dominant]:.0f}%")
-    
-    with col2:
-        st.metric("🧠 Tipo MBTI", results['mbti_type'])
-    
-    with col3:
-        st.metric("📈 Confiabilidade", f"{results['reliability']}%")
+    dominant = max(disc_scores, key=disc_scores.get)
+    st.success(f"🎉 **Resultado:** DISC dominante = {dominant} ({disc_scores[dominant]:.0f}%) | MBTI = {mbti_type}")
 
 def render_header():
     """Renderiza cabeçalho principal"""
@@ -771,35 +700,28 @@ def render_sidebar():
         st.markdown("### 🧭 Navegação")
         
         if st.session_state.authenticated:
-            st.success(f"👋 Olá, {st.session_state.user_name}!")
+            st.success(f"👋 {st.session_state.user_name}!")
             st.caption(f"📧 {st.session_state.user_email}")
             
             if st.button("🏠 Dashboard", key="nav_dashboard", use_container_width=True):
                 st.session_state.current_page = 'dashboard'
                 st.rerun()
             
-            if st.button("📝 Nova Avaliação", key="nav_assessment", use_container_width=True):
-                st.session_state.assessment_answers = {}
-                st.session_state.selected_questions = None
-                st.session_state.assessment_completed = False
-                st.session_state.results = None
-                st.session_state.question_page = 0
+            if st.button("📝 Avaliação", key="nav_assessment", use_container_width=True):
                 st.session_state.current_page = 'assessment'
                 st.rerun()
             
-            if st.session_state.assessment_completed or st.session_state.results:
-                if st.button("📊 Ver Resultados", key="nav_results", use_container_width=True):
+            if st.session_state.results:
+                if st.button("📊 Resultados", key="nav_results", use_container_width=True):
                     st.session_state.current_page = 'results'
                     st.rerun()
             
             st.markdown("---")
             
             if st.button("🚪 Sair", key="nav_logout", use_container_width=True):
-                for key in ['authenticated', 'user_name', 'user_email', 'user_id', 'id_token', 
-                          'assessment_completed', 'assessment_answers', 'results', 'selected_questions']:
-                    if key in st.session_state:
-                        del st.session_state[key]
-                st.session_state.current_page = 'home'
+                # Limpa session state
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
                 st.rerun()
         else:
             render_auth_sidebar()
@@ -813,11 +735,9 @@ def render_auth_sidebar():
     
     st.markdown("### 🔑 Acesso")
     
-    tab1, tab2, tab3 = st.tabs(["Entrar", "Cadastrar", "Recuperar"])
+    tab1, tab2 = st.tabs(["Entrar", "Cadastrar"])
     
     with tab1:
-        st.markdown("**Login com Firebase**")
-        
         with st.form("login_form"):
             email = st.text_input("📧 Email", placeholder="seu@email.com")
             password = st.text_input("🔐 Senha", type="password")
@@ -835,9 +755,7 @@ def render_auth_sidebar():
                             st.session_state.id_token = data.get('idToken', '')
                             st.session_state.current_page = 'dashboard'
                             
-                            # Não carrega automaticamente para evitar logs
                             st.success("✅ Login realizado!")
-                            time.sleep(1)
                             st.rerun()
                         else:
                             st.error(f"❌ {message}")
@@ -845,8 +763,6 @@ def render_auth_sidebar():
                     st.error("❌ Preencha email e senha")
     
     with tab2:
-        st.markdown("**Criar Nova Conta**")
-        
         with st.form("signup_form"):
             name = st.text_input("👤 Nome", placeholder="Seu nome completo")
             email = st.text_input("📧 Email", placeholder="seu@email.com")
@@ -862,52 +778,20 @@ def render_auth_sidebar():
                             success, data, message = firebase_signup(email, password, name)
                             
                             if success:
-                                st.success("✅ Conta criada com sucesso!")
-                                st.info("👆 Agora faça login na aba 'Entrar'")
+                                st.success("✅ Conta criada! Faça login na aba 'Entrar'")
                             else:
                                 st.error(f"❌ {message}")
                 else:
                     st.error("❌ Preencha todos os campos")
-    
-    with tab3:
-        st.markdown("**Esqueceu a Senha?**")
-        
-        with st.form("reset_form"):
-            email = st.text_input("📧 Email da conta", placeholder="seu@email.com")
-            
-            if st.form_submit_button("📨 Enviar Reset", use_container_width=True):
-                if email:
-                    with st.spinner("📨 Enviando email..."):
-                        success, message = firebase_reset_password(email)
-                        
-                        if success:
-                            st.success("✅ Email de recuperação enviado!")
-                            st.info("📬 Verifique sua caixa de entrada")
-                        else:
-                            st.error(f"❌ {message}")
-                else:
-                    st.error("❌ Digite seu email")
 
 def render_login_required():
     """Renderiza tela de login obrigatório"""
     
-    if not FIREBASE_API_KEY:
-        st.error("""
-        ⚠️ **Configuração Firebase Necessária**
-        
-        Para usar autenticação Firebase, você precisa configurar:
-        1. `FIREBASE_API_KEY` nos secrets do Streamlit
-        2. `FIREBASE_PROJECT_ID` nos secrets do Streamlit
-        
-        Obtenha essas chaves no console do Firebase.
-        """)
-        return
-    
     st.markdown("""
     <div class="login-required">
-        <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">🔒 Login com Firebase</h2>
+        <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">🔒 Login Necessário</h2>
         <p style="font-size: 1.3rem; margin: 1.5rem 0;">
-            Para acessar o NeuroMap Pro, faça login ou crie uma conta.
+            Para usar o NeuroMap Pro, faça login ou crie uma conta.
         </p>
         <p style="font-size: 1.2rem; font-weight: 500;">
             👈 Use a barra lateral para entrar ou se cadastrar
@@ -925,14 +809,14 @@ def render_login_required():
         - **Análise DISC completa** detalhada
         - **Perfil comportamental** profundo
         - **Gráficos visuais** informativos
-        - **Relatórios PDF** para download
-        - **Dados salvos** na nuvem Firebase
+        - **Relatórios TXT** para download
+        - **Dados salvos** no Firestore
         - **Histórico de avaliações** pessoal
         """)
     
     with col2:
         st.markdown("""
-        ### 🔒 Segurança Firebase:
+        ### 🔒 Segurança Firestore:
         
         - 🛡️ **Autenticação segura** do Google
         - ☁️ **Dados na nuvem** protegidos
@@ -943,31 +827,36 @@ def render_login_required():
         """)
 
 def render_dashboard():
-    """Renderiza dashboard principal"""
+    """Dashboard com Firestore"""
     st.markdown(f"## 👋 Bem-vindo, {st.session_state.user_name}!")
     
-    # Seção de debug Firebase
-    with st.expander("🔧 Debug Firebase", expanded=False):
-        st.markdown("### Configurações:")
-        st.write(f"**Project ID:** {FIREBASE_PROJECT_ID}")
-        st.write(f"**Database URL:** {FIREBASE_DATABASE_URL}")
-        st.write(f"**User ID:** {st.session_state.user_id}")
-        
-        if st.button("🧪 Testar Conexão Firebase", key="test_firebase"):
-            test_firebase_connection()
-        
-        if st.button("🔄 Carregar Dados", key="force_load"):
+    # Debug Firestore sempre visível
+    st.markdown("### 🔧 Firestore Debug")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("🧪 Testar Firestore", key="test_firestore", use_container_width=True):
+            test_firestore_connection()
+    
+    with col2:
+        if st.button("🔄 Carregar Dados", key="load_data", use_container_width=True):
             if st.session_state.user_id:
-                existing_results = load_assessment_from_firebase(st.session_state.user_id)
+                existing_results = load_assessment_from_firestore(st.session_state.user_id)
                 if existing_results:
                     st.session_state.results = existing_results
                     st.session_state.assessment_completed = True
-                    st.success("✅ Dados carregados!")
                     st.rerun()
-        
-        if st.session_state.results and st.button("💾 Salvar Dados", key="force_save"):
-            if save_assessment_to_firebase(st.session_state.user_id, st.session_state.results):
-                st.success("✅ Dados salvos!")
+    
+    with col3:
+        if st.session_state.results and st.button("💾 Salvar Agora", key="save_now", use_container_width=True):
+            save_assessment_to_firestore(st.session_state.user_id, st.session_state.results)
+    
+    # Informações de configuração
+    st.info(f"📋 **Firestore:** Project = `{FIREBASE_PROJECT_ID}` | User = `{st.session_state.user_id[:8] if st.session_state.user_id else 'N/A'}...`")
+    st.info(f"🔑 **Token:** {'✅ Presente' if st.session_state.id_token else '❌ Ausente'}")
+    
+    st.markdown("---")
     
     # Métricas principais
     col1, col2, col3, col4 = st.columns(4)
@@ -978,14 +867,14 @@ def render_dashboard():
         st.metric("📊 Avaliações", completed, delta=delta)
     
     with col2:
-        if st.session_state.assessment_completed and st.session_state.results:
+        if st.session_state.results:
             mbti_type = st.session_state.results.get('mbti_type', 'N/A')
             st.metric("🎭 Tipo MBTI", mbti_type, delta="Identificado")
         else:
             st.metric("🎭 Tipo MBTI", "?", delta="Não avaliado")
     
     with col3:
-        if st.session_state.assessment_completed and st.session_state.results:
+        if st.session_state.results:
             reliability = st.session_state.results.get('reliability', 0)
             delta = "Alta" if reliability > 80 else "Média" if reliability > 60 else "Baixa"
             st.metric("🎯 Confiabilidade", f"{reliability}%", delta=delta)
@@ -993,7 +882,7 @@ def render_dashboard():
             st.metric("🎯 Confiabilidade", "0%", delta="Não avaliado")
     
     with col4:
-        if st.session_state.assessment_completed and st.session_state.results:
+        if st.session_state.results:
             completion_time = st.session_state.results.get('completion_time', 0)
             st.metric("⏱️ Tempo", f"{completion_time} min", delta="Concluído")
         else:
@@ -1001,13 +890,9 @@ def render_dashboard():
     
     st.markdown("---")
     
-    # Informações do usuário Firebase
-    if st.session_state.user_id:
-        st.info(f"🔐 **Conta Firebase:** {st.session_state.user_email} | **ID:** {st.session_state.user_id[:8]}...")
-    
     # Ações principais
     if not st.session_state.assessment_completed:
-        st.markdown("### 🚀 Pronto para descobrir seu perfil?")
+        st.markdown("### 🚀 Iniciar Nova Avaliação")
         
         col1, col2 = st.columns([2, 1])
         
@@ -1024,26 +909,25 @@ def render_dashboard():
             """)
         
         with col2:
-            if st.button("🎯 Iniciar Avaliação", key="start_assessment", type="primary", use_container_width=True):
+            if st.button("🎯 Começar Avaliação", key="start_new", type="primary", use_container_width=True):
                 st.session_state.current_page = 'assessment'
                 st.rerun()
             
             st.caption("⏱️ **Tempo:** 25-30 minutos")
             st.caption("📊 **Questões:** 48 científicas")
             st.caption("🔀 **Ordem:** Aleatória")
-    
     else:
-        st.markdown("### 🎉 Sua avaliação está completa!")
+        st.markdown("### 🎉 Avaliação Concluída!")
         
         col1, col2 = st.columns(2)
-        
         with col1:
-            if st.button("📊 Ver Análise Completa", key="view_results", type="primary", use_container_width=True):
+            if st.button("📊 Ver Resultados", key="view_results", type="primary", use_container_width=True):
                 st.session_state.current_page = 'results'
                 st.rerun()
         
         with col2:
-            if st.button("🔄 Nova Avaliação", key="new_assessment", use_container_width=True):
+            if st.button("🔄 Nova Avaliação", key="restart", use_container_width=True):
+                # Reset completo
                 st.session_state.assessment_answers = {}
                 st.session_state.selected_questions = None
                 st.session_state.assessment_completed = False
@@ -1054,18 +938,29 @@ def render_dashboard():
         
         # Preview dos resultados
         if st.session_state.results:
-            render_results_preview()
+            st.markdown("### 🎯 Preview dos Resultados")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### 🎭 Perfil DISC")
+                for dim, score in st.session_state.results['disc'].items():
+                    if score > 20:
+                        st.write(f"**{dim}**: {score:.0f}%")
+            
+            with col2:
+                st.markdown("#### 💭 Tipo MBTI")
+                st.write(f"**Tipo**: {st.session_state.results['mbti_type']}")
+                st.write(f"**Confiabilidade**: {st.session_state.results['reliability']}%")
 
 def render_assessment():
-    """Renderiza página de avaliação"""
+    """Página de avaliação com salvamento no Firestore"""
     
-    # Gera questões na primeira vez
     if st.session_state.selected_questions is None:
         st.session_state.selected_questions = generate_random_questions(48)
         st.session_state.assessment_start_time = datetime.now()
     
     questions = st.session_state.selected_questions
-    
     st.title("📝 Avaliação de Personalidade")
     
     # Progress
@@ -1073,20 +968,16 @@ def render_assessment():
     answered = len([k for k, v in st.session_state.assessment_answers.items() if v > 0])
     progress = answered / total_questions if total_questions > 0 else 0
     
-    # Header de progresso
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.metric("📊 Questões", f"{answered}/{total_questions}")
-    
     with col2:
         st.metric("📈 Progresso", f"{progress:.1%}")
         st.progress(progress)
-    
     with col3:
         remaining = total_questions - answered
         st.metric("⏳ Restantes", remaining)
-    
     with col4:
         if st.session_state.assessment_start_time:
             elapsed = (datetime.now() - st.session_state.assessment_start_time).seconds // 60
@@ -1094,12 +985,11 @@ def render_assessment():
     
     st.markdown("---")
     
-    # Navegação por páginas (6 questões por página)
+    # Navegação por páginas
     questions_per_page = 6
     total_pages = (total_questions + questions_per_page - 1) // questions_per_page
     current_page = st.session_state.question_page
     
-    # Navegação
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col1:
@@ -1134,45 +1024,42 @@ def render_assessment():
     
     with col1:
         if st.button("💾 Salvar", key="save_progress", use_container_width=True):
-            st.success("✅ Progresso salvo!")
-            time.sleep(1)
+            st.success("✅ Progresso salvo localmente!")
     
     with col2:
         if answered >= total_questions:
             if st.button("✨ Finalizar", key="finish_assessment", type="primary", use_container_width=True):
                 with st.spinner("🧠 Processando resultados..."):
+                    # Calcula resultados
                     calculate_results()
                     
-                    # Tenta salvar no Firebase
+                    # Salva no Firestore
+                    st.markdown("### 💾 Salvando no Firestore")
                     if st.session_state.user_id and st.session_state.results:
-                        st.write("💾 **Salvando seus resultados...**")
-                        save_success = save_assessment_to_firebase(st.session_state.user_id, st.session_state.results)
+                        save_success = save_assessment_to_firestore(st.session_state.user_id, st.session_state.results)
                         
                         if save_success:
-                            st.success("✅ Resultados salvos na nuvem!")
+                            st.balloons()
+                            st.success("🎉 **SUCESSO TOTAL!** Resultados calculados e salvos no Firestore!")
                         else:
-                            st.warning("⚠️ Resultados calculados, mas não foi possível salvar na nuvem")
+                            st.warning("⚠️ Resultados calculados, mas houve problema no salvamento")
+                    else:
+                        st.error("❌ Faltam dados para salvar")
                     
                     st.session_state.assessment_completed = True
                     st.session_state.current_page = 'results'
                     
-                    st.success("🎉 Avaliação concluída!")
-                    time.sleep(2)
+                    time.sleep(3)
                     st.rerun()
         else:
-            st.info(f"📝 Faltam {remaining} questões")
+            st.info(f"📝 Faltam {remaining} questões para finalizar")
     
     with col3:
         if st.button("🔄 Reiniciar", key="restart_assessment", use_container_width=True):
-            if st.session_state.confirm_restart:
-                st.session_state.assessment_answers = {}
-                st.session_state.selected_questions = None
-                st.session_state.question_page = 0
-                st.session_state.confirm_restart = False
-                st.rerun()
-            else:
-                st.session_state.confirm_restart = True
-                st.warning("⚠️ Clique novamente para confirmar")
+            st.session_state.assessment_answers = {}
+            st.session_state.selected_questions = None
+            st.session_state.question_page = 0
+            st.rerun()
 
 def render_single_question(question):
     """Renderiza uma questão individual"""
@@ -1185,10 +1072,8 @@ def render_single_question(question):
     </div>
     """, unsafe_allow_html=True)
     
-    # Escala Likert
     current_value = st.session_state.assessment_answers.get(question['display_id'], 3)
     
-    # Radio buttons
     options = [
         (1, "1 - Discordo Totalmente"),
         (2, "2 - Discordo Parcialmente"),
@@ -1209,7 +1094,6 @@ def render_single_question(question):
     
     st.session_state.assessment_answers[question['display_id']] = selected[0]
     
-    # Feedback visual
     feedback_emojis = {1: "🔴", 2: "🟠", 3: "🟡", 4: "🟢", 5: "🟢"}
     feedback_texts = {
         1: "Discordo totalmente",
@@ -1220,7 +1104,6 @@ def render_single_question(question):
     }
     
     st.caption(f"{feedback_emojis[selected[0]]} {feedback_texts[selected[0]]}")
-    
     st.markdown("---")
 
 def render_results():
@@ -1263,10 +1146,33 @@ def render_results():
     
     st.markdown("---")
     
-    # Gráficos simples
-    create_simple_charts()
+    # Gráfico simples DISC
+    st.markdown("### 📊 Perfil DISC")
     
-    st.markdown("---")
+    disc_scores = results['disc']
+    for dim, score in disc_scores.items():
+        if score >= 35:
+            color = "#48bb78"
+            level = "Alto"
+        elif score >= 25:
+            color = "#ed8936"
+            level = "Moderado"
+        else:
+            color = "#e53e3e"
+            level = "Baixo"
+            
+        bar_width = int((score / 100) * 50)
+        bar = "█" * bar_width + "░" * (50 - bar_width)
+        
+        st.markdown(f"""
+        <div style="background: {color}20; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; 
+                    border-left: 4px solid {color};">
+            <strong>{dim}: {score:.1f}% ({level})</strong><br>
+            <div style="font-family: monospace; font-size: 0.8rem; color: {color};">
+                {bar}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     # Análise DISC detalhada
     st.markdown("### 🎭 Análise DISC Detalhada")
@@ -1301,9 +1207,8 @@ def render_results():
         </div>
         """, unsafe_allow_html=True)
     
-    # Tipo MBTI
+    # MBTI
     st.markdown("### 💭 Tipo MBTI")
-    
     mbti_type = results['mbti_type']
     mbti_descriptions = get_mbti_description(mbti_type)
     
@@ -1362,7 +1267,7 @@ def render_results():
                 filename = f"NeuroMap_Relatorio_{timestamp}.txt"
                 
                 st.download_button(
-                    label="⬇️ Baixar Relatório",
+                    label="⬇️ Baixar Relatório TXT",
                     data=txt_content,
                     file_name=filename,
                     mime="text/plain",
@@ -1371,30 +1276,6 @@ def render_results():
                 )
                 
                 st.success("🎉 Relatório gerado!")
-            else:
-                st.error("❌ Erro ao gerar relatório")
-
-def render_results_preview():
-    """Preview dos resultados no dashboard"""
-    
-    st.markdown("### 🎯 Resumo dos Resultados")
-    
-    results = st.session_state.results
-    if not results:
-        return
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("#### 🎭 Perfil DISC")
-        for dim, score in results['disc'].items():
-            if score > 20:
-                st.write(f"**{dim}**: {score:.0f}%")
-    
-    with col2:
-        st.markdown("#### 💭 Tipo MBTI")
-        st.write(f"**Tipo**: {results['mbti_type']}")
-        st.write(f"**Confiabilidade**: {results['reliability']}%")
 
 def get_mbti_description(mbti_type):
     """Retorna descrição do tipo MBTI"""
@@ -1472,30 +1353,30 @@ def get_mbti_description(mbti_type):
     })
 
 def generate_insights(dominant_disc, mbti_type, results):
-    """Gera insights corrigidos baseados no MBTI real"""
+    """Gera insights personalizados baseados no perfil real"""
     
     disc_scores = results['disc']
     
-    # Insights baseados no MBTI real, não só no DISC
+    # Insights baseados no MBTI real
     mbti_insights = {
         'INFP': {
             'strengths': [
                 "Criatividade e imaginação excepcional",
                 "Empatia profunda e compreensão das pessoas",
                 "Valores sólidos e integridade pessoal",
-                "Capacidade de inspirar e motivar através de ideais"
+                "Capacidade de inspirar através de ideais"
             ],
             'development': [
-                "Desenvolver habilidades de organização e planejamento",
-                "Praticar comunicação mais direta e assertiva",
+                "Desenvolver habilidades de organização",
+                "Praticar comunicação mais direta",
                 "Melhorar gestão de tempo e prazos",
-                "Equilibrar idealismo com realismo prático"
+                "Equilibrar idealismo com realismo"
             ],
             'careers': [
                 "Psicólogo ou Terapeuta",
                 "Escritor ou Jornalista",
                 "Consultor em Recursos Humanos",
-                "Profissional de ONGs e Causas Sociais"
+                "Profissional de ONGs"
             ]
         },
         'ESTJ': {
@@ -1518,20 +1399,18 @@ def generate_insights(dominant_disc, mbti_type, results):
                 "Líder de Projetos Estratégicos"
             ]
         }
-        # ... adicionar outros tipos conforme necessário
     }
     
-    # Retorna insights específicos do MBTI ou genérico baseado no DISC
+    # Retorna insights específicos do MBTI ou genérico
     if mbti_type in mbti_insights:
         return mbti_insights[mbti_type]
     else:
-        # Fallback para insights genéricos baseados no DISC dominante
+        # Insights genéricos baseados no DISC dominante
         if dominant_disc == 'D':
-            return mbti_insights['ESTJ']  # Usa ESTJ como padrão para D alto
-        elif dominant_disc == 'S':
-            return mbti_insights['INFP']  # Usa INFP como padrão para S alto
+            return mbti_insights['ESTJ']
+        elif dominant_disc in ['I', 'S']:
+            return mbti_insights['INFP']
         else:
-            # Insights genéricos
             return {
                 'strengths': [
                     "Perfil equilibrado com múltiplas competências",
@@ -1540,29 +1419,26 @@ def generate_insights(dominant_disc, mbti_type, results):
                     "Flexibilidade comportamental"
                 ],
                 'development': [
-                    "Identificar e desenvolver pontos fortes específicos",
-                    "Focar em áreas de maior interesse e aptidão",
-                    "Desenvolver especialização em área escolhida",
+                    "Identificar pontos fortes específicos",
+                    "Focar em áreas de maior interesse",
+                    "Desenvolver especialização",
                     "Buscar feedback para autoconhecimento"
                 ],
                 'careers': [
                     "Consultor Generalista",
                     "Coordenador de Projetos",
                     "Analista de Negócios",
-                    "Gestor de Equipes Multidisciplinares"
+                    "Gestor de Equipes"
                 ]
             }
 
-
 def generate_text_report(results):
-    """Gera relatório em texto simples para download"""
+    """Gera relatório em texto simples"""
     
     try:
-        # Cabeçalho
         report = "NEUROMAP PRO - RELATORIO DE PERSONALIDADE\n"
         report += "=" * 50 + "\n\n"
         
-        # Informações gerais
         report += "INFORMACOES GERAIS:\n"
         report += f"Usuario: {st.session_state.user_email}\n"
         report += f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
@@ -1571,7 +1447,6 @@ def generate_text_report(results):
         report += f"Confiabilidade: {results['reliability']}%\n"
         report += f"Tipo MBTI: {results['mbti_type']}\n\n"
         
-        # Perfil DISC
         report += "PERFIL DISC DETALHADO:\n"
         report += "-" * 25 + "\n"
         
@@ -1593,26 +1468,19 @@ def generate_text_report(results):
             
             report += f"{description}: {value:.0f}% (Nivel {level})\n"
         
-        report += "\n"
-        
-        # Pontos fortes
-        report += "PONTOS FORTES IDENTIFICADOS:\n"
+        report += "\nPONTOS FORTES IDENTIFICADOS:\n"
         report += "-" * 30 + "\n"
         strengths = [
             "Lideranca natural e orientacao para resultados",
             "Capacidade de tomar decisoes rapidamente",
             "Foco em eficiencia e produtividade", 
-            "Habilidade de motivar equipes",
-            "Comunicacao clara e direta"
+            "Habilidade de motivar equipes"
         ]
         
         for i, strength in enumerate(strengths, 1):
             report += f"{i}. {strength}\n"
         
-        report += "\n"
-        
-        # Áreas de desenvolvimento
-        report += "AREAS PARA DESENVOLVIMENTO:\n"
+        report += "\nAREAS PARA DESENVOLVIMENTO:\n"
         report += "-" * 30 + "\n"
         development_areas = [
             "Desenvolver paciencia com processos mais lentos",
@@ -1624,17 +1492,13 @@ def generate_text_report(results):
         for i, area in enumerate(development_areas, 1):
             report += f"{i}. {area}\n"
         
-        report += "\n"
-        
-        # Carreiras sugeridas
-        report += "CARREIRAS SUGERIDAS:\n"
+        report += "\nCARREIRAS SUGERIDAS:\n"
         report += "-" * 20 + "\n"
         careers = [
             "Gerente ou Diretor Executivo",
             "Consultor Empresarial",
             "Empreendedor ou Fundador", 
-            "Lider de Projetos Estrategicos",
-            "Coordenador de Equipes"
+            "Lider de Projetos Estrategicos"
         ]
         
         for i, career in enumerate(careers, 1):
@@ -1656,12 +1520,11 @@ def main():
     render_header()
     render_sidebar()
     
-    # Verifica autenticação
     if not st.session_state.authenticated:
         render_login_required()
         return
     
-    # Roteamento de páginas
+    # Roteamento
     if st.session_state.current_page == 'dashboard':
         render_dashboard()
     elif st.session_state.current_page == 'assessment':
