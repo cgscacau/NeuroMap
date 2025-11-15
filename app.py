@@ -340,7 +340,7 @@ def save_assessment_to_firestore(user_id, results):
         return False
     
     try:
-        # URL REST do Firestore (sem autenticação complexa)
+        # URL REST do Firestore
         doc_url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/users/{user_id}?key={FIREBASE_API_KEY}"
         
         # Dados no formato Firestore
@@ -376,9 +376,7 @@ def save_assessment_to_firestore(user_id, results):
             }
         }
         
-        st.info(f"🔄 **Salvando no Firestore:** /users/{user_id}")
-        
-        # Headers simples (sem Authorization)
+        # Headers simples
         headers = {
             "Content-Type": "application/json"
         }
@@ -386,19 +384,15 @@ def save_assessment_to_firestore(user_id, results):
         # Requisição PATCH para criar/atualizar documento
         response = requests.patch(doc_url, json=firestore_data, headers=headers, timeout=30)
         
-        st.info(f"📡 **Status HTTP:** {response.status_code}")
-        st.info(f"📄 **URL:** {doc_url}")
-        
         if response.status_code in [200, 201]:
-            st.success("✅ **SUCESSO!** Avaliação salva no Firestore!")
+            st.success("✅ Avaliação salva no Firestore!")
             return True
         else:
-            st.error(f"❌ **Erro Firestore:** {response.status_code}")
-            st.error(f"**Response:** {response.text}")
+            st.error(f"❌ Erro Firestore: {response.status_code}")
             return False
         
     except Exception as e:
-        st.error(f"❌ **Erro geral:** {str(e)}")
+        st.error(f"❌ Erro geral: {str(e)}")
         return False
 
 def load_assessment_from_firestore(user_id):
@@ -414,11 +408,7 @@ def load_assessment_from_firestore(user_id):
             "Content-Type": "application/json"
         }
         
-        st.info(f"🔄 **Carregando do Firestore:** /users/{user_id}")
-        
         response = requests.get(doc_url, headers=headers, timeout=10)
-        
-        st.info(f"📡 **Status:** {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
@@ -443,17 +433,15 @@ def load_assessment_from_firestore(user_id):
                     "answered_questions": int(firestore_results["answered_questions"]["integerValue"])
                 }
                 
-                st.success("✅ **Dados carregados do Firestore!**")
+                st.success("✅ Dados carregados do Firestore!")
                 return results
             else:
-                st.info("📭 Nenhuma avaliação encontrada")
                 return None
                 
         elif response.status_code == 404:
-            st.info("📭 Primeira avaliação (documento não existe ainda)")
             return None
         else:
-            st.error(f"❌ Erro ao carregar: {response.status_code} - {response.text}")
+            st.error(f"❌ Erro ao carregar: {response.status_code}")
             return None
         
     except Exception as e:
@@ -488,188 +476,18 @@ def test_firestore_connection():
             "Content-Type": "application/json"
         }
         
-        st.info(f"🧪 **Testando Firestore REST API:** {test_url}")
-        
         # Teste de escrita
         response = requests.patch(test_url, json=test_data, headers=headers, timeout=15)
         
-        st.info(f"📝 **Escrita:** {response.status_code}")
-        st.info(f"📄 **Response:** {response.text}")
-        
         if response.status_code not in [200, 201]:
-            st.error(f"❌ Falha na escrita: {response.status_code} - {response.text}")
-            
-            # Tenta diagnóstico
-            if response.status_code == 403:
-                st.error("🚫 **Erro de Permissão:** Configure as regras do Firestore como públicas temporariamente")
-                st.code("""
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}
-                """)
-            elif response.status_code == 400:
-                st.error("📝 **Erro de Formato:** Dados mal formatados")
-            elif response.status_code == 401:
-                st.error("🔑 **Erro de Auth:** API Key inválida")
-            
+            st.error(f"❌ Falha na escrita: {response.status_code}")
             return False
         
-        st.success("✅ **Passo 1:** Escrita no Firestore OK")
-        
-        # Teste de leitura
-        read_response = requests.get(test_url, headers=headers, timeout=10)
-        
-        st.info(f"📖 **Leitura:** {read_response.status_code}")
-        
-        if read_response.status_code == 200:
-            read_data = read_response.json()
-            if "fields" in read_data and read_data["fields"]["test"]["stringValue"] == "connection_test":
-                st.success("✅ **Passo 2:** Leitura do Firestore OK")
-            else:
-                st.error("❌ Dados não conferem na leitura")
-                st.json(read_data)
-                return False
-        else:
-            st.error(f"❌ Falha na leitura: {read_response.status_code}")
-            return False
-        
-        # Limpa teste
-        delete_response = requests.delete(test_url, headers=headers, timeout=10)
-        st.info(f"🗑️ **Limpeza:** {delete_response.status_code}")
-        
-        st.success("✅ **FIRESTORE FUNCIONANDO PERFEITAMENTE!**")
-        return True
-        
-    except Exception as e:
-        st.error(f"❌ Erro no teste: {str(e)}")
-        return False
-
-def load_assessment_from_firestore(user_id):
-    """Carrega avaliação do Firestore"""
-    
-    if not FIREBASE_PROJECT_ID or not user_id or not st.session_state.id_token:
-        return None
-    
-    try:
-        doc_url = f"{FIRESTORE_BASE_URL}/users/{user_id}"
-        
-        headers = {
-            "Authorization": f"Bearer {st.session_state.id_token}",
-            "Content-Type": "application/json"
-        }
-        
-        st.info(f"🔄 **Carregando do Firestore:** /users/{user_id}")
-        
-        response = requests.get(doc_url, headers=headers, timeout=10)
-        
-        st.info(f"📡 **Status:** {response.status_code}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            if "fields" in data and "results" in data["fields"]:
-                # Converte formato Firestore de volta para Python
-                firestore_results = data["fields"]["results"]["mapValue"]["fields"]
-                
-                results = {
-                    "disc": {
-                        "D": float(firestore_results["disc"]["mapValue"]["fields"]["D"]["doubleValue"]),
-                        "I": float(firestore_results["disc"]["mapValue"]["fields"]["I"]["doubleValue"]),
-                        "S": float(firestore_results["disc"]["mapValue"]["fields"]["S"]["doubleValue"]),
-                        "C": float(firestore_results["disc"]["mapValue"]["fields"]["C"]["doubleValue"])
-                    },
-                    "mbti_type": firestore_results["mbti_type"]["stringValue"],
-                    "reliability": int(firestore_results["reliability"]["integerValue"]),
-                    "completion_time": int(firestore_results["completion_time"]["integerValue"]),
-                    "total_questions": int(firestore_results["total_questions"]["integerValue"]),
-                    "response_consistency": float(firestore_results["response_consistency"]["doubleValue"]),
-                    "response_variance": float(firestore_results["response_variance"]["doubleValue"]),
-                    "answered_questions": int(firestore_results["answered_questions"]["integerValue"])
-                }
-                
-                st.success("✅ **Dados carregados do Firestore!**")
-                return results
-            else:
-                st.info("📭 Nenhuma avaliação encontrada")
-                return None
-                
-        elif response.status_code == 404:
-            st.info("📭 Primeira avaliação (documento não existe ainda)")
-            return None
-        else:
-            st.error(f"❌ Erro ao carregar: {response.status_code} - {response.text}")
-            return None
-        
-    except Exception as e:
-        st.error(f"❌ Erro ao carregar: {str(e)}")
-        return None
-
-def test_firestore_connection():
-    """Testa conexão com Firestore"""
-    
-    if not FIREBASE_PROJECT_ID:
-        st.error("❌ FIREBASE_PROJECT_ID não configurado")
-        return False
-    
-    if not st.session_state.id_token:
-        st.error("❌ Token de autenticação não encontrado. Faça login novamente.")
-        return False
-    
-    try:
-        # Testa criação de documento de teste
-        test_url = f"{FIRESTORE_BASE_URL}/test_connection/test_doc"
-        
-        test_data = {
-            "fields": {
-                "test": {"stringValue": "connection_test"},
-                "timestamp": {"timestampValue": datetime.now().isoformat() + "Z"},
-                "status": {"stringValue": "testing"}
-            }
-        }
-        
-        headers = {
-            "Authorization": f"Bearer {st.session_state.id_token}",
-            "Content-Type": "application/json"
-        }
-        
-        st.info(f"🧪 **Testando Firestore:** {test_url}")
-        
-        # Teste de escrita
-        response = requests.patch(test_url, json=test_data, headers=headers, timeout=15)
-        
-        st.info(f"📝 **Escrita:** {response.status_code}")
-        
-        if response.status_code not in [200, 201]:
-            st.error(f"❌ Falha na escrita: {response.status_code} - {response.text}")
-            return False
-        
-        st.success("✅ **Passo 1:** Escrita no Firestore OK")
-        
-        # Teste de leitura
-        read_response = requests.get(test_url, headers=headers, timeout=10)
-        
-        st.info(f"📖 **Leitura:** {read_response.status_code}")
-        
-        if read_response.status_code == 200:
-            read_data = read_response.json()
-            if "fields" in read_data and read_data["fields"]["test"]["stringValue"] == "connection_test":
-                st.success("✅ **Passo 2:** Leitura do Firestore OK")
-            else:
-                st.error("❌ Dados não conferem na leitura")
-                return False
-        else:
-            st.error(f"❌ Falha na leitura: {read_response.status_code}")
-            return False
+        st.success("✅ Firestore funcionando!")
         
         # Limpa teste
         requests.delete(test_url, headers=headers, timeout=10)
         
-        st.success("✅ **FIRESTORE FUNCIONANDO PERFEITAMENTE!**")
         return True
         
     except Exception as e:
@@ -702,16 +520,11 @@ def calculate_results():
         st.error("❌ Dados da avaliação não encontrados")
         return
     
-    # Debug das respostas
-    st.info("🔍 **Debug - Primeiras 5 respostas:**")
-    sample_answers = dict(list(answers.items())[:5])
-    st.json(sample_answers)
-    
     # Inicializa scores DISC
     disc_raw_scores = {"D": 0.0, "I": 0.0, "S": 0.0, "C": 0.0}
     disc_question_counts = {"D": 0, "I": 0, "S": 0, "C": 0}
     
-    # Processa cada resposta com algoritmo corrigido
+    # Processa cada resposta
     for q_id, answer in answers.items():
         question = next((q for q in questions if q['display_id'] == q_id), None)
         if not question:
@@ -720,7 +533,7 @@ def calculate_results():
         category = question['category']
         weight = question['weight']
         
-        # Sistema de pontuação mais diferenciado
+        # Sistema de pontuação
         if answer == 5:
             points = 2.0 * weight    # Concordo totalmente
         elif answer == 4:
@@ -737,9 +550,6 @@ def calculate_results():
             disc_raw_scores[dim] += points
             disc_question_counts[dim] += 1
     
-    st.info("🔍 **Debug - Scores brutos por dimensão:**")
-    st.json(disc_raw_scores)
-    
     # Calcula médias por dimensão
     disc_averages = {}
     for dim in disc_raw_scores:
@@ -748,18 +558,14 @@ def calculate_results():
         else:
             disc_averages[dim] = 0
     
-    st.info("🔍 **Debug - Médias por dimensão:**")
-    st.json(disc_averages)
-    
-    # Converte para escala 0-100 de forma mais realista
+    # Converte para escala 0-100
     min_avg = min(disc_averages.values())
     max_avg = max(disc_averages.values())
     
     if abs(max_avg - min_avg) < 0.1:  # Valores muito próximos
         disc_scores = {"D": 25, "I": 25, "S": 25, "C": 25}
-        st.warning("⚠️ **Perfil equilibrado detectado** - todas as dimensões similares")
     else:
-        # Converte para escala 5-45 (mais realista)
+        # Converte para escala 5-45
         base_score = 5
         range_score = 40
         total_range = max_avg - min_avg
@@ -775,10 +581,7 @@ def calculate_results():
         for dim in disc_scores:
             disc_scores[dim] = (disc_scores[dim] / total) * 100
     
-    st.success("✅ **Scores DISC finais:**")
-    st.json(disc_scores)
-    
-    # MBTI baseado nos scores DISC corrigidos
+    # MBTI baseado nos scores DISC
     mbti_type = ""
     
     # Extroversão vs Introversão
@@ -797,7 +600,7 @@ def calculate_results():
     judging_score = (disc_scores["C"] + disc_scores["S"]) - (disc_scores["D"] + disc_scores["I"])
     mbti_type += "J" if judging_score > 0 else "P"
     
-    # Confiabilidade baseada na diferenciação
+    # Confiabilidade
     response_values = list(answers.values())
     response_variance = np.var(response_values) if len(response_values) > 1 else 0
     disc_variance = np.var(list(disc_scores.values()))
@@ -828,7 +631,7 @@ def calculate_results():
     }
     
     dominant = max(disc_scores, key=disc_scores.get)
-    st.success(f"🎉 **Resultado:** DISC dominante = {dominant} ({disc_scores[dominant]:.0f}%) | MBTI = {mbti_type}")
+    st.success(f"🎉 Resultado: DISC dominante = {dominant} ({disc_scores[dominant]:.0f}%) | MBTI = {mbti_type}")
 
 def render_header():
     """Renderiza cabeçalho principal"""
@@ -976,10 +779,10 @@ def render_login_required():
         """)
 
 def render_dashboard():
-    """Dashboard com Firestore"""
+    """Dashboard principal"""
     st.markdown(f"## 👋 Bem-vindo, {st.session_state.user_name}!")
     
-    # Debug Firestore sempre visível
+    # Debug Firestore
     st.markdown("### 🔧 Firestore Debug")
     
     col1, col2, col3 = st.columns(3)
@@ -1001,9 +804,8 @@ def render_dashboard():
         if st.session_state.results and st.button("💾 Salvar Agora", key="save_now", use_container_width=True):
             save_assessment_to_firestore(st.session_state.user_id, st.session_state.results)
     
-    # Informações de configuração
+    # Informações
     st.info(f"📋 **Firestore:** Project = `{FIREBASE_PROJECT_ID}` | User = `{st.session_state.user_id[:8] if st.session_state.user_id else 'N/A'}...`")
-    st.info(f"🔑 **Token:** {'✅ Presente' if st.session_state.id_token else '❌ Ausente'}")
     
     st.markdown("---")
     
@@ -1103,7 +905,7 @@ def render_dashboard():
                 st.write(f"**Confiabilidade**: {st.session_state.results['reliability']}%")
 
 def render_assessment():
-    """Página de avaliação com salvamento no Firestore"""
+    """Página de avaliação"""
     
     if st.session_state.selected_questions is None:
         st.session_state.selected_questions = generate_random_questions(48)
@@ -1183,22 +985,19 @@ def render_assessment():
                     calculate_results()
                     
                     # Salva no Firestore
-                    st.markdown("### 💾 Salvando no Firestore")
                     if st.session_state.user_id and st.session_state.results:
                         save_success = save_assessment_to_firestore(st.session_state.user_id, st.session_state.results)
                         
                         if save_success:
                             st.balloons()
-                            st.success("🎉 **SUCESSO TOTAL!** Resultados calculados e salvos no Firestore!")
+                            st.success("🎉 Resultados calculados e salvos!")
                         else:
-                            st.warning("⚠️ Resultados calculados, mas houve problema no salvamento")
-                    else:
-                        st.error("❌ Faltam dados para salvar")
+                            st.warning("⚠️ Resultados calculados, mas problema no salvamento")
                     
                     st.session_state.assessment_completed = True
                     st.session_state.current_page = 'results'
                     
-                    time.sleep(3)
+                    time.sleep(2)
                     st.rerun()
         else:
             st.info(f"📝 Faltam {remaining} questões para finalizar")
@@ -1255,89 +1054,40 @@ def render_single_question(question):
     st.caption(f"{feedback_emojis[selected[0]]} {feedback_texts[selected[0]]}")
     st.markdown("---")
 
-undefined
+def render_results():
+    """Renderiza página de resultados"""
+    
+    # Verifica se há resultados para exibir
+    if not st.session_state.results:
+        st.error("❌ Nenhum resultado encontrado. Complete a avaliação primeiro.")
+        if st.button("📝 Fazer Avaliação", key="go_to_assessment", use_container_width=True):
+            st.session_state.current_page = 'assessment'
+            st.rerun()
+        return
+    
+    results = st.session_state.results
+    
+    st.title("📊 Seus Resultados")
+    
+    # Métricas principais
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        if st.button("📝 Relatório TXT", key="generate_txt", use_container_width=True):
-            with st.spinner("📝 Gerando relatório texto..."):
-                txt_content = generate_text_report(results)
-                
-                if txt_content is not None:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"NeuroMap_Relatorio_{timestamp}.txt"
-                    
-                    st.download_button(
-                        label="⬇️ Baixar TXT",
-                        data=txt_content,
-                        file_name=filename,
-                        mime="text/plain",
-                        key="download_txt",
-                        use_container_width=True
-                    )
-                    
-                    st.success("🎉 Relatório TXT gerado!")
-                else:
-                    st.error("❌ Erro ao gerar relatório TXT")
+        st.metric("🎭 Tipo MBTI", results['mbti_type'])
     
     with col2:
-        if st.button("🌐 Relatório HTML", key="generate_html", use_container_width=True):
-            with st.spinner("🌐 Gerando relatório HTML..."):
-                html_content = generate_html_report(results)
-                
-                if html_content is not None:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"NeuroMap_Relatorio_{timestamp}.html"
-                    
-                    st.download_button(
-                        label="⬇️ Baixar HTML",
-                        data=html_content,
-                        file_name=filename,
-                        mime="text/html",
-                        key="download_html",
-                        use_container_width=True
-                    )
-                    
-                    st.success("🎉 Relatório HTML gerado!")
-                    
-                    # Preview do HTML
-                    with st.expander("👁️ Preview do Relatório HTML"):
-                        st.components.v1.html(html_content.decode('utf-8'), height=600, scrolling=True)
-                else:
-                    st.error("❌ Erro ao gerar relatório HTML")
+        dominant_disc = max(results['disc'], key=results['disc'].get)
+        st.metric("🎯 DISC Dominante", f"{dominant_disc} ({results['disc'][dominant_disc]:.0f}%)")
     
     with col3:
-        if st.button("📄 Relatório PDF", key="generate_pdf", use_container_width=True):
-            with st.spinner("📄 Gerando relatório PDF..."):
-                pdf_content = generate_pdf_report(results)
-                
-                if pdf_content is not None:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"NeuroMap_Relatorio_{timestamp}.pdf"
-                    
-                    st.download_button(
-                        label="⬇️ Baixar PDF",
-                        data=pdf_content,
-                        file_name=filename,
-                        mime="application/pdf",
-                        key="download_pdf",
-                        use_container_width=True
-                    )
-                    
-                    st.success("🎉 Relatório PDF gerado!")
-                else:
-                    st.error("❌ Erro ao gerar relatório PDF")
+        st.metric("🎯 Confiabilidade", f"{results['reliability']}%")
     
-    # Informações sobre os formatos
+    with col4:
+        st.metric("⏱️ Tempo", f"{results['completion_time']} min")
+    
     st.markdown("---")
-    st.info("""
-    📋 **Formatos disponíveis:**
-    - **TXT**: Texto simples, compatível com qualquer dispositivo
-    - **HTML**: Relatório visual com design profissional, pode ser aberto em navegadores
-    - **PDF**: Formato profissional para impressão e compartilhamento formal
-    """)
-
     
-    # Gráfico simples DISC
+    # Gráfico DISC
     st.markdown("### 📊 Perfil DISC")
     
     disc_scores = results['disc']
@@ -1446,27 +1196,75 @@ undefined
         </div>
         """, unsafe_allow_html=True)
     
-    # Botão de download
+    # Botões de download
     st.markdown("---")
+    st.markdown("### 📄 Gerar Relatórios")
     
-    if st.button("📝 Gerar Relatório TXT", key="generate_txt", use_container_width=True):
-        with st.spinner("📝 Gerando relatório..."):
-            txt_content = generate_text_report(results)
-            
-            if txt_content is not None:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"NeuroMap_Relatorio_{timestamp}.txt"
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("📝 Relatório TXT", key="generate_txt", use_container_width=True):
+            with st.spinner("📝 Gerando relatório..."):
+                txt_content = generate_text_report(results)
                 
-                st.download_button(
-                    label="⬇️ Baixar Relatório TXT",
-                    data=txt_content,
-                    file_name=filename,
-                    mime="text/plain",
-                    key="download_txt",
-                    use_container_width=True
-                )
+                if txt_content is not None:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"NeuroMap_Relatorio_{timestamp}.txt"
+                    
+                    st.download_button(
+                        label="⬇️ Baixar TXT",
+                        data=txt_content,
+                        file_name=filename,
+                        mime="text/plain",
+                        key="download_txt",
+                        use_container_width=True
+                    )
+                    
+                    st.success("🎉 Relatório TXT gerado!")
+                else:
+                    st.error("❌ Erro ao gerar relatório TXT")
+    
+    with col2:
+        if st.button("🌐 Relatório HTML", key="generate_html", use_container_width=True):
+            with st.spinner("🌐 Gerando relatório HTML..."):
+                html_content = generate_html_report(results)
                 
-                st.success("🎉 Relatório gerado!")
+                if html_content is not None:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"NeuroMap_Relatorio_{timestamp}.html"
+                    
+                    st.download_button(
+                        label="⬇️ Baixar HTML",
+                        data=html_content,
+                        file_name=filename,
+                        mime="text/html",
+                        key="download_html",
+                        use_container_width=True
+                    )
+                    
+                    st.success("🎉 Relatório HTML gerado!")
+                else:
+                    st.error("❌ Erro ao gerar relatório HTML")
+    
+    # Ações adicionais
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🔄 Nova Avaliação", key="restart_from_results", use_container_width=True):
+            # Reset completo
+            st.session_state.assessment_answers = {}
+            st.session_state.selected_questions = None
+            st.session_state.assessment_completed = False
+            st.session_state.results = None
+            st.session_state.question_page = 0
+            st.session_state.current_page = 'assessment'
+            st.rerun()
+    
+    with col2:
+        if st.button("🏠 Voltar ao Dashboard", key="back_to_dashboard", use_container_width=True):
+            st.session_state.current_page = 'dashboard'
+            st.rerun()
 
 def get_mbti_description(mbti_type):
     """Retorna descrição do tipo MBTI"""
@@ -1544,11 +1342,9 @@ def get_mbti_description(mbti_type):
     })
 
 def generate_insights(dominant_disc, mbti_type, results):
-    """Gera insights personalizados baseados no perfil real"""
+    """Gera insights personalizados"""
     
-    disc_scores = results['disc']
-    
-    # Insights baseados no MBTI real
+    # Insights baseados no MBTI
     mbti_insights = {
         'INFP': {
             'strengths': [
@@ -1592,7 +1388,7 @@ def generate_insights(dominant_disc, mbti_type, results):
         }
     }
     
-    # Retorna insights específicos do MBTI ou genérico
+    # Retorna insights específicos ou genérico
     if mbti_type in mbti_insights:
         return mbti_insights[mbti_type]
     else:
@@ -1624,10 +1420,9 @@ def generate_insights(dominant_disc, mbti_type, results):
             }
 
 def generate_html_report(results):
-    """Gera relatório em HTML com design profissional"""
+    """Gera relatório em HTML"""
     
     try:
-        # Dados do usuário e resultados
         user_email = st.session_state.user_email
         user_name = st.session_state.user_name
         mbti_descriptions = get_mbti_description(results['mbti_type'])
@@ -1642,370 +1437,122 @@ def generate_html_report(results):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NeuroMap Pro - Relatório de {user_name}</title>
     <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-        
         body {{
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }}
-        
-        .container {{
-            max-width: 1000px;
+            max-width: 800px;
             margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
+            padding: 20px;
+            background: #f5f5f5;
         }}
-        
         .header {{
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 40px;
+            padding: 30px;
             text-align: center;
-        }}
-        
-        .header h1 {{
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            font-weight: 700;
-        }}
-        
-        .header p {{
-            font-size: 1.2rem;
-            opacity: 0.9;
-        }}
-        
-        .content {{
-            padding: 40px;
-        }}
-        
-        .user-info {{
-            background: #f8f9fa;
-            padding: 20px;
             border-radius: 10px;
             margin-bottom: 30px;
-            border-left: 5px solid #667eea;
         }}
-        
         .section {{
-            margin-bottom: 40px;
-        }}
-        
-        .section h2 {{
-            color: #667eea;
-            font-size: 1.8rem;
+            background: white;
+            padding: 20px;
             margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e9ecef;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }}
-        
-        .section h3 {{
-            color: #495057;
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-        }}
-        
-        .metrics {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }}
-        
-        .metric-card {{
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            border-left: 4px solid #667eea;
-        }}
-        
-        .metric-value {{
-            font-size: 2rem;
-            font-weight: bold;
-            color: #667eea;
-        }}
-        
-        .metric-label {{
-            color: #6c757d;
-            font-size: 0.9rem;
-            margin-top: 5px;
-        }}
-        
-        .disc-chart {{
-            display: grid;
-            gap: 15px;
-            margin-bottom: 30px;
-        }}
-        
         .disc-item {{
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            position: relative;
-        }}
-        
-        .disc-item.high {{
-            border-left: 5px solid #28a745;
-            background: #d4edda;
-        }}
-        
-        .disc-item.medium {{
-            border-left: 5px solid #ffc107;
-            background: #fff3cd;
-        }}
-        
-        .disc-item.low {{
-            border-left: 5px solid #dc3545;
-            background: #f8d7da;
-        }}
-        
-        .disc-header {{
-            font-weight: bold;
-            font-size: 1.1rem;
-            margin-bottom: 8px;
-        }}
-        
-        .disc-bar {{
-            background: #e9ecef;
-            height: 20px;
-            border-radius: 10px;
-            overflow: hidden;
+            padding: 15px;
             margin: 10px 0;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
         }}
-        
-        .disc-fill {{
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-            transition: width 0.3s ease;
-        }}
-        
+        .strength {{ background: #d4edda; border-left-color: #28a745; }}
+        .development {{ background: #f8d7da; border-left-color: #dc3545; }}
+        .career {{ background: #e2e3ff; border-left-color: #6f42c1; }}
+        h1, h2 {{ color: #667eea; }}
         .mbti-section {{
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 30px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-        }}
-        
-        .mbti-type {{
-            font-size: 3rem;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 15px;
-        }}
-        
-        .insights-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin-bottom: 30px;
-        }}
-        
-        .insight-card {{
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }}
-        
-        .strengths {{
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-        }}
-        
-        .development {{
-            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
-            color: white;
-        }}
-        
-        .careers {{
-            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
-            color: white;
-        }}
-        
-        .insight-card h3 {{
-            margin-bottom: 15px;
-            font-size: 1.3rem;
-        }}
-        
-        .insight-card ul {{
-            list-style: none;
-            padding: 0;
-        }}
-        
-        .insight-card li {{
-            padding: 8px 0;
-            padding-left: 20px;
-            position: relative;
-        }}
-        
-        .insight-card li:before {{
-            content: "•";
-            position: absolute;
-            left: 0;
-            font-weight: bold;
-            font-size: 1.2rem;
-        }}
-        
-        .footer {{
-            background: #f8f9fa;
             padding: 20px;
+            border-radius: 8px;
             text-align: center;
-            color: #6c757d;
-            border-top: 1px solid #e9ecef;
-        }}
-        
-        @media print {{
-            body {{
-                background: white;
-                padding: 0;
-            }}
-            
-            .container {{
-                box-shadow: none;
-                border-radius: 0;
-            }}
         }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🧠 NeuroMap Pro</h1>
-            <p>Relatório Completo de Análise de Personalidade</p>
-        </div>
-        
-        <div class="content">
-            <div class="user-info">
-                <h3>📋 Informações Gerais</h3>
-                <p><strong>Usuário:</strong> {user_name} ({user_email})</p>
-                <p><strong>Data:</strong> {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
-                <p><strong>Tempo de Conclusão:</strong> {results['completion_time']} minutos</p>
-                <p><strong>Total de Questões:</strong> {results['total_questions']}</p>
-                <p><strong>Confiabilidade:</strong> {results['reliability']}%</p>
-            </div>
-            
-            <div class="metrics">
-                <div class="metric-card">
-                    <div class="metric-value">{results['mbti_type']}</div>
-                    <div class="metric-label">Tipo MBTI</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">{dominant_disc}</div>
-                    <div class="metric-label">DISC Dominante</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">{results['reliability']}%</div>
-                    <div class="metric-label">Confiabilidade</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">{results['response_consistency']:.1f}</div>
-                    <div class="metric-label">Consistência</div>
-                </div>
-            </div>
-            
-            <div class="section">
-                <h2>🎭 Análise DISC Detalhada</h2>
-                <div class="disc-chart">
+    <div class="header">
+        <h1>🧠 NeuroMap Pro</h1>
+        <p>Relatório de Análise de Personalidade</p>
+    </div>
+    
+    <div class="section">
+        <h2>📋 Informações Gerais</h2>
+        <p><strong>Usuário:</strong> {user_name} ({user_email})</p>
+        <p><strong>Data:</strong> {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
+        <p><strong>Tempo:</strong> {results['completion_time']} minutos</p>
+        <p><strong>Confiabilidade:</strong> {results['reliability']}%</p>
+    </div>
+    
+    <div class="section">
+        <h2>📊 Perfil DISC</h2>
 """
-
-        # Adiciona dados DISC
+        
         disc_descriptions = {
-            "D": ("Dominância", "Orientação para resultados, liderança direta, tomada de decisão rápida"),
-            "I": ("Influência", "Comunicação persuasiva, networking, motivação de equipes"),
-            "S": ("Estabilidade", "Cooperação, paciência, trabalho em equipe consistente"),
-            "C": ("Conformidade", "Foco em qualidade, precisão, análise sistemática")
+            "D": ("Dominância", "Orientação para resultados e liderança"),
+            "I": ("Influência", "Comunicação e networking"),
+            "S": ("Estabilidade", "Cooperação e paciência"),
+            "C": ("Conformidade", "Qualidade e precisão")
         }
         
         for key, score in results['disc'].items():
             name, description = disc_descriptions[key]
-            
-            if score >= 35:
-                level_class = "high"
-                level_text = "Alto"
-            elif score >= 20:
-                level_class = "medium"
-                level_text = "Moderado"
-            else:
-                level_class = "low"
-                level_text = "Baixo"
-            
             html_content += f"""
-                    <div class="disc-item {level_class}">
-                        <div class="disc-header">{name} - {score:.1f}% ({level_text})</div>
-                        <div class="disc-bar">
-                            <div class="disc-fill" style="width: {score}%"></div>
-                        </div>
-                        <p>{description}</p>
-                    </div>
-"""
-
-        html_content += f"""
-                </div>
-            </div>
-            
-            <div class="mbti-section">
-                <div class="mbti-type">{results['mbti_type']}</div>
-                <h3 style="text-align: center; margin-bottom: 15px;">{mbti_descriptions['title']}</h3>
-                <p style="text-align: center; font-size: 1.1rem;">{mbti_descriptions['description']}</p>
-            </div>
-            
-            <div class="section">
-                <h2>🎯 Insights e Recomendações</h2>
-                <div class="insights-grid">
-                    <div class="insight-card strengths">
-                        <h3>🏆 Pontos Fortes</h3>
-                        <ul>
-"""
-
-        for strength in insights['strengths']:
-            html_content += f"                            <li>{strength}</li>\n"
-
-        html_content += """
-                        </ul>
-                    </div>
-                    
-                    <div class="insight-card development">
-                        <h3>📈 Áreas de Desenvolvimento</h3>
-                        <ul>
-"""
-
-        for area in insights['development']:
-            html_content += f"                            <li>{area}</li>\n"
-
-        html_content += """
-                        </ul>
-                    </div>
-                    
-                    <div class="insight-card careers">
-                        <h3>💼 Carreiras Sugeridas</h3>
-                        <ul>
-"""
-
-        for career in insights['careers']:
-            html_content += f"                            <li>{career}</li>\n"
-
-        html_content += f"""
-                        </ul>
-                    </div>
-                </div>
-            </div>
+        <div class="disc-item">
+            <strong>{name} ({key}): {score:.1f}%</strong><br>
+            {description}
         </div>
+"""
         
-        <div class="footer">
-            <p>Relatório gerado pelo <strong>NeuroMap Pro</strong> em {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
-            <p>Análise Científica Avançada de Personalidade</p>
-        </div>
+        html_content += f"""
+    </div>
+    
+    <div class="mbti-section">
+        <h2>💭 Tipo MBTI: {results['mbti_type']}</h2>
+        <h3>{mbti_descriptions['title']}</h3>
+        <p>{mbti_descriptions['description']}</p>
+    </div>
+    
+    <div class="section">
+        <h2>🎯 Insights e Recomendações</h2>
+        
+        <h3>🏆 Pontos Fortes</h3>
+"""
+        
+        for strength in insights['strengths']:
+            html_content += f'        <div class="disc-item strength">• {strength}</div>\n'
+        
+        html_content += """
+        
+        <h3>📈 Desenvolvimento</h3>
+"""
+        
+        for area in insights['development']:
+            html_content += f'        <div class="disc-item development">• {area}</div>\n'
+        
+        html_content += """
+        
+        <h3>💼 Carreiras</h3>
+"""
+        
+        for career in insights['careers']:
+            html_content += f'        <div class="disc-item career">• {career}</div>\n'
+        
+        html_content += f"""
+    </div>
+    
+    <div class="section" style="text-align: center; color: #666;">
+        <p>Relatório gerado pelo NeuroMap Pro em {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
     </div>
 </body>
 </html>
@@ -2014,284 +1561,8 @@ def generate_html_report(results):
         return html_content.encode('utf-8')
         
     except Exception as e:
-        st.error(f"❌ Erro ao gerar relatório HTML: {str(e)}")
+        st.error(f"❌ Erro ao gerar HTML: {str(e)}")
         return None
-
-def generate_pdf_report(results):
-    """Gera relatório PDF usando reportlab"""
-    
-    try:
-        from reportlab.lib.pagesizes import letter, A4
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.colors import HexColor, black, white
-        from reportlab.lib.units import inch
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
-        import io
-        
-        # Buffer para o PDF
-        buffer = io.BytesIO()
-        
-        # Configuração do documento
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            rightMargin=72,
-            leftMargin=72,
-            topMargin=72,
-            bottomMargin=18
-        )
-        
-        # Estilos
-        styles = getSampleStyleSheet()
-        
-        # Estilos customizados
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=24,
-            spaceAfter=30,
-            alignment=TA_CENTER,
-            textColor=HexColor('#667eea'),
-            fontName='Helvetica-Bold'
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=16,
-            spaceAfter=12,
-            textColor=HexColor('#667eea'),
-            fontName='Helvetica-Bold'
-        )
-        
-        subheading_style = ParagraphStyle(
-            'CustomSubHeading',
-            parent=styles['Heading3'],
-            fontSize=14,
-            spaceAfter=10,
-            textColor=HexColor('#495057'),
-            fontName='Helvetica-Bold'
-        )
-        
-        body_style = ParagraphStyle(
-            'CustomBody',
-            parent=styles['Normal'],
-            fontSize=11,
-            spaceAfter=6,
-            alignment=TA_JUSTIFY,
-            fontName='Helvetica'
-        )
-        
-        # Lista de elementos do PDF
-        story = []
-        
-        # Título
-        story.append(Paragraph("🧠 NeuroMap Pro", title_style))
-        story.append(Paragraph("Relatório de Análise de Personalidade", styles['Heading3']))
-        story.append(Spacer(1, 20))
-        
-        # Informações gerais
-        story.append(Paragraph("📋 Informações Gerais", heading_style))
-        
-        user_info = [
-            ['Usuário:', f"{st.session_state.user_name} ({st.session_state.user_email})"],
-            ['Data:', datetime.now().strftime('%d/%m/%Y às %H:%M')],
-            ['Tempo de Conclusão:', f"{results['completion_time']} minutos"],
-            ['Total de Questões:', str(results['total_questions'])],
-            ['Confiabilidade:', f"{results['reliability']}%"],
-            ['Tipo MBTI:', results['mbti_type']]
-        ]
-        
-        info_table = Table(user_info, colWidths=[2*inch, 4*inch])
-        info_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), HexColor('#f8f9fa')),
-            ('TEXTCOLOR', (0, 0), (-1, -1), black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, HexColor('#dee2e6')),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 12),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ]))
-        
-        story.append(info_table)
-        story.append(Spacer(1, 20))
-        
-        # Análise DISC
-        story.append(Paragraph("🎭 Análise DISC Detalhada", heading_style))
-        
-        disc_descriptions = {
-            "D": ("Dominância", "Orientação para resultados, liderança direta, tomada de decisão rápida"),
-            "I": ("Influência", "Comunicação persuasiva, networking, motivação de equipes"),
-            "S": ("Estabilidade", "Cooperação, paciência, trabalho em equipe consistente"),
-            "C": ("Conformidade", "Foco em qualidade, precisão, análise sistemática")
-        }
-        
-        disc_data = [['Dimensão', 'Score', 'Nível', 'Descrição']]
-        
-        for key, score in results['disc'].items():
-            name, description = disc_descriptions[key]
-            
-            if score >= 35:
-                level = "Alto"
-            elif score >= 20:
-                level = "Moderado"
-            else:
-                level = "Baixo"
-            
-            disc_data.append([f"{name} ({key})", f"{score:.1f}%", level, description])
-        
-        disc_table = Table(disc_data, colWidths=[1.5*inch, 0.8*inch, 0.8*inch, 3.4*inch])
-        disc_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#667eea')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), white),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, 0), 11),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('GRID', (0, 0), (-1, -1), 1, HexColor('#dee2e6')),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 8),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#f8f9fa')])
-        ]))
-        
-        story.append(disc_table)
-        story.append(Spacer(1, 20))
-        
-        # Tipo MBTI
-        story.append(Paragraph("💭 Tipo MBTI", heading_style))
-        mbti_descriptions = get_mbti_description(results['mbti_type'])
-        
-        story.append(Paragraph(f"<b>Tipo {results['mbti_type']}: {mbti_descriptions['title']}</b>", subheading_style))
-        story.append(Paragraph(mbti_descriptions['description'], body_style))
-        story.append(Spacer(1, 15))
-        
-        # Insights
-        story.append(Paragraph("🎯 Insights e Recomendações", heading_style))
-        
-        dominant_disc = max(results['disc'], key=results['disc'].get)
-        insights = generate_insights(dominant_disc, results['mbti_type'], results)
-        
-        # Pontos Fortes
-        story.append(Paragraph("🏆 Pontos Fortes", subheading_style))
-        for strength in insights['strengths']:
-            story.append(Paragraph(f"• {strength}", body_style))
-        story.append(Spacer(1, 10))
-        
-        # Desenvolvimento
-        story.append(Paragraph("📈 Áreas de Desenvolvimento", subheading_style))
-        for area in insights['development']:
-            story.append(Paragraph(f"• {area}", body_style))
-        story.append(Spacer(1, 10))
-        
-        # Carreiras
-        story.append(Paragraph("💼 Carreiras Sugeridas", subheading_style))
-        for career in insights['careers']:
-            story.append(Paragraph(f"• {career}", body_style))
-        story.append(Spacer(1, 20))
-        
-        # Rodapé
-        story.append(Spacer(1, 30))
-        story.append(Paragraph("_" * 80, styles['Normal']))
-        story.append(Spacer(1, 10))
-        story.append(Paragraph(f"Relatório gerado pelo NeuroMap Pro em {datetime.now().strftime('%d/%m/%Y às %H:%M')}", 
-                              ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)))
-        story.append(Paragraph("Análise Científica Avançada de Personalidade", 
-                              ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)))
-        
-        # Gera o PDF
-        doc.build(story)
-        
-        # Retorna o conteúdo do buffer
-        pdf_content = buffer.getvalue()
-        buffer.close()
-        
-        return pdf_content
-        
-    except ImportError:
-        st.error("❌ Biblioteca reportlab não instalada. Execute: pip install reportlab")
-        return None
-    except Exception as e:
-        st.error(f"❌ Erro ao gerar PDF: {str(e)}")
-        return None
-
-def generate_text_report(results):
-    """Gera relatório em texto simples (mantém a versão existente)"""
-    
-    try:
-        report = "NEUROMAP PRO - RELATORIO DE PERSONALIDADE\n"
-        report += "=" * 50 + "\n\n"
-        
-        report += "INFORMACOES GERAIS:\n"
-        report += f"Usuario: {st.session_state.user_email}\n"
-        report += f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
-        report += f"Tempo de conclusao: {results['completion_time']} minutos\n"
-        report += f"Total de questoes: {results['total_questions']}\n"
-        report += f"Confiabilidade: {results['reliability']}%\n"
-        report += f"Tipo MBTI: {results['mbti_type']}\n\n"
-        
-        report += "PERFIL DISC DETALHADO:\n"
-        report += "-" * 25 + "\n"
-        
-        disc_descriptions = {
-            "D": "Dominancia - Orientacao para resultados",
-            "I": "Influencia - Comunicacao e networking",
-            "S": "Estabilidade - Cooperacao e paciencia", 
-            "C": "Conformidade - Qualidade e precisao"
-        }
-        
-        for key, value in results['disc'].items():
-            description = disc_descriptions[key]
-            if value >= 35:
-                level = "Alto"
-            elif value >= 20:
-                level = "Moderado"
-            else:
-                level = "Baixo"
-            
-            report += f"{description}: {value:.0f}% (Nivel {level})\n"
-        
-        report += "\nPONTOS FORTES IDENTIFICADOS:\n"
-        report += "-" * 30 + "\n"
-        
-        dominant_disc = max(results['disc'], key=results['disc'].get)
-        insights = generate_insights(dominant_disc, results['mbti_type'], results)
-        
-        for i, strength in enumerate(insights['strengths'], 1):
-            report += f"{i}. {strength}\n"
-        
-        report += "\nAREAS PARA DESENVOLVIMENTO:\n"
-        report += "-" * 30 + "\n"
-        
-        for i, area in enumerate(insights['development'], 1):
-            report += f"{i}. {area}\n"
-        
-        report += "\nCARREIRAS SUGERIDAS:\n"
-        report += "-" * 20 + "\n"
-        
-        for i, career in enumerate(insights['careers'], 1):
-            report += f"{i}. {career}\n"
-        
-        report += "\n" + "=" * 50 + "\n"
-        report += f"Relatorio gerado em {datetime.now().strftime('%d/%m/%Y as %H:%M')}\n"
-        report += "NeuroMap Pro - Analise Cientifica de Personalidade\n"
-        
-        return report.encode('utf-8')
-        
-    except Exception as e:
-        st.error(f"❌ Erro ao gerar relatório: {str(e)}")
-        return None
-
-
 
 def generate_text_report(results):
     """Gera relatório em texto simples"""
@@ -2329,40 +1600,26 @@ def generate_text_report(results):
             
             report += f"{description}: {value:.0f}% (Nivel {level})\n"
         
+        # Insights
+        dominant_disc = max(results['disc'], key=results['disc'].get)
+        insights = generate_insights(dominant_disc, results['mbti_type'], results)
+        
         report += "\nPONTOS FORTES IDENTIFICADOS:\n"
         report += "-" * 30 + "\n"
-        strengths = [
-            "Lideranca natural e orientacao para resultados",
-            "Capacidade de tomar decisoes rapidamente",
-            "Foco em eficiencia e produtividade", 
-            "Habilidade de motivar equipes"
-        ]
         
-        for i, strength in enumerate(strengths, 1):
+        for i, strength in enumerate(insights['strengths'], 1):
             report += f"{i}. {strength}\n"
         
         report += "\nAREAS PARA DESENVOLVIMENTO:\n"
         report += "-" * 30 + "\n"
-        development_areas = [
-            "Desenvolver paciencia com processos mais lentos",
-            "Melhorar escuta ativa e empatia",
-            "Praticar delegacao efetiva",
-            "Equilibrar assertividade com colaboracao"
-        ]
         
-        for i, area in enumerate(development_areas, 1):
+        for i, area in enumerate(insights['development'], 1):
             report += f"{i}. {area}\n"
         
         report += "\nCARREIRAS SUGERIDAS:\n"
         report += "-" * 20 + "\n"
-        careers = [
-            "Gerente ou Diretor Executivo",
-            "Consultor Empresarial",
-            "Empreendedor ou Fundador", 
-            "Lider de Projetos Estrategicos"
-        ]
         
-        for i, career in enumerate(careers, 1):
+        for i, career in enumerate(insights['careers'], 1):
             report += f"{i}. {career}\n"
         
         report += "\n" + "=" * 50 + "\n"
