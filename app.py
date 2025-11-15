@@ -1107,44 +1107,93 @@ def render_single_question(question):
     st.markdown("---")
 
 def render_results():
-    """Renderiza página de resultados"""
+    # ... código anterior mantém igual até a seção de download ...
     
-    st.title("🎉 Seus Resultados")
+    # Botões de download
+    st.markdown("---")
+    st.markdown("### 📄 Gerar Relatórios")
     
-    results = st.session_state.get('results')
-    if not results:
-        st.error("❌ Nenhum resultado encontrado.")
-        return
-    
-    # Header de resultados
-    st.markdown(f"""
-    <div class="insight-card">
-        <h2 style="color: #ffffff; margin-top: 0;">🎯 Resumo do seu Perfil</h2>
-        <p style="font-size: 1.2rem; margin-bottom: 0; color: #e2e8f0;">
-            Baseado em {results['total_questions']} questões científicas com 
-            <strong>{results['reliability']}% de confiabilidade</strong> 
-            (concluído em {results['completion_time']} minutos)
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Métricas principais
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        dominant_disc = max(results['disc'], key=results['disc'].get)
-        st.metric("🎭 Perfil DISC", f"{dominant_disc}", f"{results['disc'][dominant_disc]:.0f}%")
+        if st.button("📝 Relatório TXT", key="generate_txt", use_container_width=True):
+            with st.spinner("📝 Gerando relatório texto..."):
+                txt_content = generate_text_report(results)
+                
+                if txt_content is not None:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"NeuroMap_Relatorio_{timestamp}.txt"
+                    
+                    st.download_button(
+                        label="⬇️ Baixar TXT",
+                        data=txt_content,
+                        file_name=filename,
+                        mime="text/plain",
+                        key="download_txt",
+                        use_container_width=True
+                    )
+                    
+                    st.success("🎉 Relatório TXT gerado!")
+                else:
+                    st.error("❌ Erro ao gerar relatório TXT")
     
     with col2:
-        st.metric("🧠 Tipo MBTI", results['mbti_type'])
+        if st.button("🌐 Relatório HTML", key="generate_html", use_container_width=True):
+            with st.spinner("🌐 Gerando relatório HTML..."):
+                html_content = generate_html_report(results)
+                
+                if html_content is not None:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"NeuroMap_Relatorio_{timestamp}.html"
+                    
+                    st.download_button(
+                        label="⬇️ Baixar HTML",
+                        data=html_content,
+                        file_name=filename,
+                        mime="text/html",
+                        key="download_html",
+                        use_container_width=True
+                    )
+                    
+                    st.success("🎉 Relatório HTML gerado!")
+                    
+                    # Preview do HTML
+                    with st.expander("👁️ Preview do Relatório HTML"):
+                        st.components.v1.html(html_content.decode('utf-8'), height=600, scrolling=True)
+                else:
+                    st.error("❌ Erro ao gerar relatório HTML")
     
     with col3:
-        st.metric("🎯 Confiabilidade", f"{results['reliability']}%")
+        if st.button("📄 Relatório PDF", key="generate_pdf", use_container_width=True):
+            with st.spinner("📄 Gerando relatório PDF..."):
+                pdf_content = generate_pdf_report(results)
+                
+                if pdf_content is not None:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"NeuroMap_Relatorio_{timestamp}.pdf"
+                    
+                    st.download_button(
+                        label="⬇️ Baixar PDF",
+                        data=pdf_content,
+                        file_name=filename,
+                        mime="application/pdf",
+                        key="download_pdf",
+                        use_container_width=True
+                    )
+                    
+                    st.success("🎉 Relatório PDF gerado!")
+                else:
+                    st.error("❌ Erro ao gerar relatório PDF")
     
-    with col4:
-        st.metric("📊 Consistência", f"{results['response_consistency']:.1f}")
-    
+    # Informações sobre os formatos
     st.markdown("---")
+    st.info("""
+    📋 **Formatos disponíveis:**
+    - **TXT**: Texto simples, compatível com qualquer dispositivo
+    - **HTML**: Relatório visual com design profissional, pode ser aberto em navegadores
+    - **PDF**: Formato profissional para impressão e compartilhamento formal
+    """)
+
     
     # Gráfico simples DISC
     st.markdown("### 📊 Perfil DISC")
@@ -1431,6 +1480,676 @@ def generate_insights(dominant_disc, mbti_type, results):
                     "Gestor de Equipes"
                 ]
             }
+
+def generate_html_report(results):
+    """Gera relatório em HTML com design profissional"""
+    
+    try:
+        # Dados do usuário e resultados
+        user_email = st.session_state.user_email
+        user_name = st.session_state.user_name
+        mbti_descriptions = get_mbti_description(results['mbti_type'])
+        dominant_disc = max(results['disc'], key=results['disc'].get)
+        insights = generate_insights(dominant_disc, results['mbti_type'], results)
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroMap Pro - Relatório de {user_name}</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        body {{
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }}
+        
+        .container {{
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }}
+        
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }}
+        
+        .header h1 {{
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }}
+        
+        .header p {{
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }}
+        
+        .content {{
+            padding: 40px;
+        }}
+        
+        .user-info {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 5px solid #667eea;
+        }}
+        
+        .section {{
+            margin-bottom: 40px;
+        }}
+        
+        .section h2 {{
+            color: #667eea;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }}
+        
+        .section h3 {{
+            color: #495057;
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }}
+        
+        .metrics {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }}
+        
+        .metric-card {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }}
+        
+        .metric-value {{
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }}
+        
+        .metric-label {{
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }}
+        
+        .disc-chart {{
+            display: grid;
+            gap: 15px;
+            margin-bottom: 30px;
+        }}
+        
+        .disc-item {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            position: relative;
+        }}
+        
+        .disc-item.high {{
+            border-left: 5px solid #28a745;
+            background: #d4edda;
+        }}
+        
+        .disc-item.medium {{
+            border-left: 5px solid #ffc107;
+            background: #fff3cd;
+        }}
+        
+        .disc-item.low {{
+            border-left: 5px solid #dc3545;
+            background: #f8d7da;
+        }}
+        
+        .disc-header {{
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }}
+        
+        .disc-bar {{
+            background: #e9ecef;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }}
+        
+        .disc-fill {{
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }}
+        
+        .mbti-section {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }}
+        
+        .mbti-type {{
+            font-size: 3rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+        }}
+        
+        .insights-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }}
+        
+        .insight-card {{
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }}
+        
+        .strengths {{
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }}
+        
+        .development {{
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+        }}
+        
+        .careers {{
+            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+            color: white;
+        }}
+        
+        .insight-card h3 {{
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }}
+        
+        .insight-card ul {{
+            list-style: none;
+            padding: 0;
+        }}
+        
+        .insight-card li {{
+            padding: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }}
+        
+        .insight-card li:before {{
+            content: "•";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }}
+        
+        .footer {{
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
+        }}
+        
+        @media print {{
+            body {{
+                background: white;
+                padding: 0;
+            }}
+            
+            .container {{
+                box-shadow: none;
+                border-radius: 0;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 NeuroMap Pro</h1>
+            <p>Relatório Completo de Análise de Personalidade</p>
+        </div>
+        
+        <div class="content">
+            <div class="user-info">
+                <h3>📋 Informações Gerais</h3>
+                <p><strong>Usuário:</strong> {user_name} ({user_email})</p>
+                <p><strong>Data:</strong> {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
+                <p><strong>Tempo de Conclusão:</strong> {results['completion_time']} minutos</p>
+                <p><strong>Total de Questões:</strong> {results['total_questions']}</p>
+                <p><strong>Confiabilidade:</strong> {results['reliability']}%</p>
+            </div>
+            
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-value">{results['mbti_type']}</div>
+                    <div class="metric-label">Tipo MBTI</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{dominant_disc}</div>
+                    <div class="metric-label">DISC Dominante</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{results['reliability']}%</div>
+                    <div class="metric-label">Confiabilidade</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{results['response_consistency']:.1f}</div>
+                    <div class="metric-label">Consistência</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>🎭 Análise DISC Detalhada</h2>
+                <div class="disc-chart">
+"""
+
+        # Adiciona dados DISC
+        disc_descriptions = {
+            "D": ("Dominância", "Orientação para resultados, liderança direta, tomada de decisão rápida"),
+            "I": ("Influência", "Comunicação persuasiva, networking, motivação de equipes"),
+            "S": ("Estabilidade", "Cooperação, paciência, trabalho em equipe consistente"),
+            "C": ("Conformidade", "Foco em qualidade, precisão, análise sistemática")
+        }
+        
+        for key, score in results['disc'].items():
+            name, description = disc_descriptions[key]
+            
+            if score >= 35:
+                level_class = "high"
+                level_text = "Alto"
+            elif score >= 20:
+                level_class = "medium"
+                level_text = "Moderado"
+            else:
+                level_class = "low"
+                level_text = "Baixo"
+            
+            html_content += f"""
+                    <div class="disc-item {level_class}">
+                        <div class="disc-header">{name} - {score:.1f}% ({level_text})</div>
+                        <div class="disc-bar">
+                            <div class="disc-fill" style="width: {score}%"></div>
+                        </div>
+                        <p>{description}</p>
+                    </div>
+"""
+
+        html_content += f"""
+                </div>
+            </div>
+            
+            <div class="mbti-section">
+                <div class="mbti-type">{results['mbti_type']}</div>
+                <h3 style="text-align: center; margin-bottom: 15px;">{mbti_descriptions['title']}</h3>
+                <p style="text-align: center; font-size: 1.1rem;">{mbti_descriptions['description']}</p>
+            </div>
+            
+            <div class="section">
+                <h2>🎯 Insights e Recomendações</h2>
+                <div class="insights-grid">
+                    <div class="insight-card strengths">
+                        <h3>🏆 Pontos Fortes</h3>
+                        <ul>
+"""
+
+        for strength in insights['strengths']:
+            html_content += f"                            <li>{strength}</li>\n"
+
+        html_content += """
+                        </ul>
+                    </div>
+                    
+                    <div class="insight-card development">
+                        <h3>📈 Áreas de Desenvolvimento</h3>
+                        <ul>
+"""
+
+        for area in insights['development']:
+            html_content += f"                            <li>{area}</li>\n"
+
+        html_content += """
+                        </ul>
+                    </div>
+                    
+                    <div class="insight-card careers">
+                        <h3>💼 Carreiras Sugeridas</h3>
+                        <ul>
+"""
+
+        for career in insights['careers']:
+            html_content += f"                            <li>{career}</li>\n"
+
+        html_content += f"""
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Relatório gerado pelo <strong>NeuroMap Pro</strong> em {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
+            <p>Análise Científica Avançada de Personalidade</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        
+        return html_content.encode('utf-8')
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao gerar relatório HTML: {str(e)}")
+        return None
+
+def generate_pdf_report(results):
+    """Gera relatório PDF usando reportlab"""
+    
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.colors import HexColor, black, white
+        from reportlab.lib.units import inch
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+        import io
+        
+        # Buffer para o PDF
+        buffer = io.BytesIO()
+        
+        # Configuração do documento
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=18
+        )
+        
+        # Estilos
+        styles = getSampleStyleSheet()
+        
+        # Estilos customizados
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=HexColor('#667eea'),
+            fontName='Helvetica-Bold'
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=16,
+            spaceAfter=12,
+            textColor=HexColor('#667eea'),
+            fontName='Helvetica-Bold'
+        )
+        
+        subheading_style = ParagraphStyle(
+            'CustomSubHeading',
+            parent=styles['Heading3'],
+            fontSize=14,
+            spaceAfter=10,
+            textColor=HexColor('#495057'),
+            fontName='Helvetica-Bold'
+        )
+        
+        body_style = ParagraphStyle(
+            'CustomBody',
+            parent=styles['Normal'],
+            fontSize=11,
+            spaceAfter=6,
+            alignment=TA_JUSTIFY,
+            fontName='Helvetica'
+        )
+        
+        # Lista de elementos do PDF
+        story = []
+        
+        # Título
+        story.append(Paragraph("🧠 NeuroMap Pro", title_style))
+        story.append(Paragraph("Relatório de Análise de Personalidade", styles['Heading3']))
+        story.append(Spacer(1, 20))
+        
+        # Informações gerais
+        story.append(Paragraph("📋 Informações Gerais", heading_style))
+        
+        user_info = [
+            ['Usuário:', f"{st.session_state.user_name} ({st.session_state.user_email})"],
+            ['Data:', datetime.now().strftime('%d/%m/%Y às %H:%M')],
+            ['Tempo de Conclusão:', f"{results['completion_time']} minutos"],
+            ['Total de Questões:', str(results['total_questions'])],
+            ['Confiabilidade:', f"{results['reliability']}%"],
+            ['Tipo MBTI:', results['mbti_type']]
+        ]
+        
+        info_table = Table(user_info, colWidths=[2*inch, 4*inch])
+        info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), HexColor('#f8f9fa')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, HexColor('#dee2e6')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        
+        story.append(info_table)
+        story.append(Spacer(1, 20))
+        
+        # Análise DISC
+        story.append(Paragraph("🎭 Análise DISC Detalhada", heading_style))
+        
+        disc_descriptions = {
+            "D": ("Dominância", "Orientação para resultados, liderança direta, tomada de decisão rápida"),
+            "I": ("Influência", "Comunicação persuasiva, networking, motivação de equipes"),
+            "S": ("Estabilidade", "Cooperação, paciência, trabalho em equipe consistente"),
+            "C": ("Conformidade", "Foco em qualidade, precisão, análise sistemática")
+        }
+        
+        disc_data = [['Dimensão', 'Score', 'Nível', 'Descrição']]
+        
+        for key, score in results['disc'].items():
+            name, description = disc_descriptions[key]
+            
+            if score >= 35:
+                level = "Alto"
+            elif score >= 20:
+                level = "Moderado"
+            else:
+                level = "Baixo"
+            
+            disc_data.append([f"{name} ({key})", f"{score:.1f}%", level, description])
+        
+        disc_table = Table(disc_data, colWidths=[1.5*inch, 0.8*inch, 0.8*inch, 3.4*inch])
+        disc_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#667eea')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 1, HexColor('#dee2e6')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#f8f9fa')])
+        ]))
+        
+        story.append(disc_table)
+        story.append(Spacer(1, 20))
+        
+        # Tipo MBTI
+        story.append(Paragraph("💭 Tipo MBTI", heading_style))
+        mbti_descriptions = get_mbti_description(results['mbti_type'])
+        
+        story.append(Paragraph(f"<b>Tipo {results['mbti_type']}: {mbti_descriptions['title']}</b>", subheading_style))
+        story.append(Paragraph(mbti_descriptions['description'], body_style))
+        story.append(Spacer(1, 15))
+        
+        # Insights
+        story.append(Paragraph("🎯 Insights e Recomendações", heading_style))
+        
+        dominant_disc = max(results['disc'], key=results['disc'].get)
+        insights = generate_insights(dominant_disc, results['mbti_type'], results)
+        
+        # Pontos Fortes
+        story.append(Paragraph("🏆 Pontos Fortes", subheading_style))
+        for strength in insights['strengths']:
+            story.append(Paragraph(f"• {strength}", body_style))
+        story.append(Spacer(1, 10))
+        
+        # Desenvolvimento
+        story.append(Paragraph("📈 Áreas de Desenvolvimento", subheading_style))
+        for area in insights['development']:
+            story.append(Paragraph(f"• {area}", body_style))
+        story.append(Spacer(1, 10))
+        
+        # Carreiras
+        story.append(Paragraph("💼 Carreiras Sugeridas", subheading_style))
+        for career in insights['careers']:
+            story.append(Paragraph(f"• {career}", body_style))
+        story.append(Spacer(1, 20))
+        
+        # Rodapé
+        story.append(Spacer(1, 30))
+        story.append(Paragraph("_" * 80, styles['Normal']))
+        story.append(Spacer(1, 10))
+        story.append(Paragraph(f"Relatório gerado pelo NeuroMap Pro em {datetime.now().strftime('%d/%m/%Y às %H:%M')}", 
+                              ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)))
+        story.append(Paragraph("Análise Científica Avançada de Personalidade", 
+                              ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)))
+        
+        # Gera o PDF
+        doc.build(story)
+        
+        # Retorna o conteúdo do buffer
+        pdf_content = buffer.getvalue()
+        buffer.close()
+        
+        return pdf_content
+        
+    except ImportError:
+        st.error("❌ Biblioteca reportlab não instalada. Execute: pip install reportlab")
+        return None
+    except Exception as e:
+        st.error(f"❌ Erro ao gerar PDF: {str(e)}")
+        return None
+
+def generate_text_report(results):
+    """Gera relatório em texto simples (mantém a versão existente)"""
+    
+    try:
+        report = "NEUROMAP PRO - RELATORIO DE PERSONALIDADE\n"
+        report += "=" * 50 + "\n\n"
+        
+        report += "INFORMACOES GERAIS:\n"
+        report += f"Usuario: {st.session_state.user_email}\n"
+        report += f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+        report += f"Tempo de conclusao: {results['completion_time']} minutos\n"
+        report += f"Total de questoes: {results['total_questions']}\n"
+        report += f"Confiabilidade: {results['reliability']}%\n"
+        report += f"Tipo MBTI: {results['mbti_type']}\n\n"
+        
+        report += "PERFIL DISC DETALHADO:\n"
+        report += "-" * 25 + "\n"
+        
+        disc_descriptions = {
+            "D": "Dominancia - Orientacao para resultados",
+            "I": "Influencia - Comunicacao e networking",
+            "S": "Estabilidade - Cooperacao e paciencia", 
+            "C": "Conformidade - Qualidade e precisao"
+        }
+        
+        for key, value in results['disc'].items():
+            description = disc_descriptions[key]
+            if value >= 35:
+                level = "Alto"
+            elif value >= 20:
+                level = "Moderado"
+            else:
+                level = "Baixo"
+            
+            report += f"{description}: {value:.0f}% (Nivel {level})\n"
+        
+        report += "\nPONTOS FORTES IDENTIFICADOS:\n"
+        report += "-" * 30 + "\n"
+        
+        dominant_disc = max(results['disc'], key=results['disc'].get)
+        insights = generate_insights(dominant_disc, results['mbti_type'], results)
+        
+        for i, strength in enumerate(insights['strengths'], 1):
+            report += f"{i}. {strength}\n"
+        
+        report += "\nAREAS PARA DESENVOLVIMENTO:\n"
+        report += "-" * 30 + "\n"
+        
+        for i, area in enumerate(insights['development'], 1):
+            report += f"{i}. {area}\n"
+        
+        report += "\nCARREIRAS SUGERIDAS:\n"
+        report += "-" * 20 + "\n"
+        
+        for i, career in enumerate(insights['careers'], 1):
+            report += f"{i}. {career}\n"
+        
+        report += "\n" + "=" * 50 + "\n"
+        report += f"Relatorio gerado em {datetime.now().strftime('%d/%m/%Y as %H:%M')}\n"
+        report += "NeuroMap Pro - Analise Cientifica de Personalidade\n"
+        
+        return report.encode('utf-8')
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao gerar relatório: {str(e)}")
+        return None
+
+
 
 def generate_text_report(results):
     """Gera relatório em texto simples"""
