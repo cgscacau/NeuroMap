@@ -1106,33 +1106,72 @@ def render_assessment():
         if st.button("💾 Salvar Progresso", key="save_progress", use_container_width=True):
             st.success("✅ Progresso salvo localmente!")
             st.info(f"📊 {answered} questões respondidas de {total_questions}")
+            # Limpa qualquer estado de confirmação
+            if 'confirm_exit' in st.session_state:
+                del st.session_state.confirm_exit
+            if 'confirm_restart' in st.session_state:
+                del st.session_state.confirm_restart
     
     with col2:
-        if st.button("🏠 Voltar ao Dashboard", key="back_to_dashboard", use_container_width=True):
-            if answered > 0:
-                if st.session_state.get('confirm_exit', False):
+        # Botão Dashboard com confirmação melhorada
+        if answered > 0:
+            # Se já confirmou, mostra botão diferente
+            if st.session_state.get('confirm_exit', False):
+                if st.button("✅ Confirmar Saída", key="confirm_back_to_dashboard", use_container_width=True, type="primary"):
                     st.session_state.current_page = 'dashboard'
                     st.session_state.confirm_exit = False
                     st.rerun()
-                else:
-                    st.session_state.confirm_exit = True
-                    st.warning("⚠️ Clique novamente para confirmar. Seu progresso será mantido.")
+                st.caption("⚠️ Seu progresso será mantido")
             else:
+                if st.button("🏠 Voltar ao Dashboard", key="back_to_dashboard", use_container_width=True):
+                    st.session_state.confirm_exit = True
+                    # Limpa outros estados de confirmação
+                    if 'confirm_restart' in st.session_state:
+                        del st.session_state.confirm_restart
+                    st.rerun()
+        else:
+            # Se não há progresso, volta direto
+            if st.button("🏠 Voltar ao Dashboard", key="back_to_dashboard_direct", use_container_width=True):
                 st.session_state.current_page = 'dashboard'
                 st.rerun()
     
     with col3:
-        if st.button("🔄 Reiniciar Avaliação", key="restart_assessment", use_container_width=True):
-            if st.session_state.get('confirm_restart', False):
+        # Botão Reiniciar com confirmação melhorada
+        if st.session_state.get('confirm_restart', False):
+            if st.button("❌ Confirmar Reset", key="confirm_restart_assessment", use_container_width=True, type="primary"):
                 st.session_state.assessment_answers = {}
                 st.session_state.selected_questions = None
                 st.session_state.question_page = 0
                 st.session_state.confirm_restart = False
                 st.success("🔄 Avaliação reiniciada!")
+                time.sleep(1)
                 st.rerun()
-            else:
+            st.caption("⚠️ Todos os dados serão perdidos")
+        else:
+            if st.button("🔄 Reiniciar Avaliação", key="restart_assessment", use_container_width=True):
                 st.session_state.confirm_restart = True
-                st.error("⚠️ Clique novamente para confirmar. Todos os dados serão perdidos!")
+                # Limpa outros estados de confirmação
+                if 'confirm_exit' in st.session_state:
+                    del st.session_state.confirm_exit
+                st.rerun()
+    
+    # Mostra avisos de confirmação se necessário
+    if st.session_state.get('confirm_exit', False):
+        st.warning("⚠️ **Tem certeza que quer sair?** Clique em 'Confirmar Saída' acima. Seu progresso será mantido.")
+        
+        # Botão para cancelar
+        if st.button("❌ Cancelar", key="cancel_exit", use_container_width=False):
+            st.session_state.confirm_exit = False
+            st.rerun()
+    
+    if st.session_state.get('confirm_restart', False):
+        st.error("⚠️ **Tem certeza que quer reiniciar?** Clique em 'Confirmar Reset' acima. Todos os dados serão perdidos!")
+        
+        # Botão para cancelar
+        if st.button("❌ Cancelar", key="cancel_restart", use_container_width=False):
+            st.session_state.confirm_restart = False
+            st.rerun()
+
 
 
 def render_single_question(question):
